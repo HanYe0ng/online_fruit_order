@@ -1,34 +1,50 @@
-import React from 'react'
-import { Navigate } from 'react-router-dom'
-import { useAuth } from '../../hooks/useAuth'
+// src/components/admin/ProtectedRoute.tsx
+import React, { useEffect, useState } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
 import { Loading } from '../common'
 import { ROUTES } from '../../utils/constants'
+import { supabase } from '../../services/supabase'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredRole?: 'admin' | 'manager'
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requiredRole 
-}) => {
-  const { user, isLoading, isAuthenticated } = useAuth()
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const [isLoading, setIsLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const location = useLocation()
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('ProtectedRoute 인증 확인:', !!session)
+        
+        if (session?.user) {
+          setIsAuthenticated(true)
+        } else {
+          setIsAuthenticated(false)
+        }
+      } catch (error) {
+        console.error('인증 확인 중 오류:', error)
+        setIsAuthenticated(false)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [])
 
   if (isLoading) {
     return <Loading fullScreen text="인증 확인 중..." />
   }
 
   if (!isAuthenticated) {
-    return <Navigate to={ROUTES.ADMIN_LOGIN} replace />
-  }
-
-  if (requiredRole && user?.role !== requiredRole) {
-    // 권한이 없는 경우 대시보드로 리다이렉트
-    return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />
+    return <Navigate to={ROUTES.ADMIN_LOGIN} replace state={{ from: location }} />
   }
 
   return <>{children}</>
 }
 
-export {ProtectedRoute}
+export { ProtectedRoute }

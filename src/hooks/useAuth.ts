@@ -1,53 +1,83 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useCallback } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { authService } from '../services/auth'
+import { supabase } from '../services/supabase'
 
 export const useAuth = () => {
   const { user, isLoading, isAuthenticated, setUser, setLoading } = useAuthStore()
 
-  useEffect(() => {
-    let mounted = true // cleanup을 위한 플래그
+  // 프로필 로더
+  const loadProfile = useCallback(async (uid: string) => {
+    try {
+      const { user: current, error } = await authService.getCurrentUser()
+      if (error) {
+        setUser(null)
+      } else {
+        setUser(current)
+      }
+    } catch {
+      setUser(null)
+    }
+  }, [setUser])
 
-    const initAuth = async () => {
-      if (!mounted) return
-      
-      const store = useAuthStore.getState()
-      store.setLoading(true)
-      
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+
+    // 1) 현재 세션 한 번 확인
+    supabase.auth.getUser()
+      .then(({ data }) => {
+        if (!alive) return
+        if (data?.user?.id) return loadProfile(data.user.id)
+        setUser(null)
+      })
+      .finally(() => { if (alive) setLoading(false) })
+
+    // 2) 이후 변화는 이벤트로 수신
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!alive) return
+      setLoading(true)
       try {
-        const { user, error } = await authService.getCurrentUser()
-        if (mounted) {
-          store.setUser(user)
-        }
-      } catch (error) {
-        if (mounted) {
-          store.setUser(null)
+        if (session?.user?.id) {
+          await loadProfile(session.user.id)
+        } else {
+          setUser(null)
         }
       } finally {
-        if (mounted) {
-          store.setLoading(false)
-        }
+        if (alive) setLoading(false)
       }
-    }
+    })
 
-    initAuth()
-
-    // cleanup 함수
     return () => {
-      mounted = false
+      alive = false
+      sub?.subscription?.unsubscribe?.()
     }
-  }, [])
+  }, [setLoading, setUser, loadProfile])
 
-  // 반환값을 메모화
-  return useMemo(() => ({
-    user,
-    isLoading,
-    isAuthenticated,
-    login: async (email: string, password: string) => {
-      return { user: null, error: '임시로 비활성화된 로그인입니다.' }
-    },
-    logout: async () => {
-      return { error: null }
+  // 실제 로그인/로그아웃도 스토어에 반영
+  const login = useCallback(async (email: string, password: string) => {
+    setLoading(true)
+    try {
+      const { user, error } = await authService.login({ email, password })
+      if (!error) setUser(user)
+      return { user, error }
+    } finally {
+      setLoading(false)
     }
-  }), [user, isLoading, isAuthenticated])
+  }, [setUser, setLoading])
+
+  const logout = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { error } = await authService.logout()
+      if (!error) setUser(null)
+      return { error }
+    } finally {
+      setLoading(false)
+    }
+  }, [setUser, setLoading])
+
+  return useMemo(() => ({
+    user, isLoading, isAuthenticated, login, logout,
+  }), [user, isLoading, isAuthenticated, login, logout])
 }
