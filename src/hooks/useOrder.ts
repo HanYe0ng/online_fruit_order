@@ -11,8 +11,15 @@ export const useSearchApartments = (query: string) => {
 }
 
 export const useCreateOrder = () => {
+  const queryClient = useQueryClient()
+  
   return useMutation({
-    mutationFn: (orderData: CreateOrderData) => orderService.createOrder(orderData)
+    mutationFn: (orderData: CreateOrderData) => orderService.createOrder(orderData),
+    onSuccess: () => {
+      // 주문 성공 시 상품 목록과 주문 목록을 새로고침 (재고가 업데이트되었으므로)
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+    }
   })
 }
 
@@ -39,6 +46,18 @@ export const useUpdateOrderStatus = () => {
       orderService.updateOrderStatus(orderId, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
+    }
+  })
+}
+
+export const useCancelOrder = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (orderId: number) => orderService.cancelOrder(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] }) // 재고가 복구되었으므로 상품 정보도 새로고침
     }
   })
 }

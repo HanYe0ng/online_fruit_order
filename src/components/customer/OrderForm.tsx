@@ -127,7 +127,16 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
       const result = await createOrder.mutateAsync(orderData)
 
       if (result.error) {
-        toast.error('주문 처리 실패', result.error)
+        // 에러 유형에 따른 다른 메시지 제공
+        if (result.error.includes('재고가 부족')) {
+          toast.error('재고 부족', result.error)
+        } else if (result.error.includes('품절')) {
+          toast.error('상품 품절', result.error)
+        } else if (result.error.includes('재고 차감')) {
+          toast.error('주문 처리 오류', '재고 업데이트 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.')
+        } else {
+          toast.error('주문 처리 실패', result.error)
+        }
       } else {
         toast.success('주문 완료!', '주문이 성공적으로 접수되었습니다.', {
           duration: 3000

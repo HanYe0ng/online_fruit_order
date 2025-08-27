@@ -1,8 +1,6 @@
 import React, { useState } from 'react'
 import { Button, Card } from '../common'
 import { useCartStore } from '../../stores/cartStore'
-// import { useToast } from '../../hooks/useToast'
-// import { checkCartItemsStock } from '../../utils/stockCheck'
 
 interface CartProps {
   onCheckout?: () => void
@@ -11,55 +9,41 @@ interface CartProps {
 const Cart: React.FC<CartProps> = ({ onCheckout }) => {
   const { items, removeItem, updateQuantity, getTotalPrice, getTotalItems, clearCart } = useCartStore()
   const [isCheckingStock, setIsCheckingStock] = useState(false)
-  // const toast = useToast()
 
-  // 재고 확인 후 주문 진행
+  // 간단한 재고 확인 테스트 (실제 DB 호출 없이)
   const handleCheckoutClick = async () => {
     setIsCheckingStock(true)
     
-    try {
-      // 임시로 2초 대기 (실제 재고 확인 시뮤레이션)
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // 임시로 성공으로 처리
-      console.log('재고 확인 완료 - 주문 진행!')
-      onCheckout?.()
-      
-      // 나중에 주석 해제하고 사용:
-      // const stockResult = await checkCartItemsStock(items)
-      // 
-      // if (stockResult.isAvailable) {
-      //   onCheckout?.()
-      // } else {
-      //   const unavailableList = stockResult.unavailableItems
-      //     ?.map(item => `${item.productName} (요청: ${item.requestedQuantity}, 재고: ${item.availableQuantity})`)
-      //     .join('\n')
-      //   
-      //   toast.warning(
-      //     '재고 부족 상품 있음', 
-      //     `다음 상품들의 재고가 부족합니다:\n${unavailableList}\n\n수량을 조정해주세요.`
-      //   )
-      // }
-    } catch (error) {
-      console.error('Error:', error)
-      // toast.error('재고 확인 오류', '재고 확인 중 문제가 발생했습니다. 다시 시도해주세요.')
-    } finally {
-      setIsCheckingStock(false)
-    }
+    // 2초 대기하여 로딩 상태 테스트
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // 간단한 알림 (Toast 없이)
+    alert('재고 확인 완료! 주문을 진행합니다.')
+    
+    setIsCheckingStock(false)
+    onCheckout?.()
   }
 
   if (items.length === 0) {
     return (
       <Card className="text-center py-8">
         <p className="text-gray-500">장바구니가 비어있습니다.</p>
-        <p className="text-sm text-green-600 mt-2">✅ Cart 컴포넌트 업데이트 완료!</p>
+        <p className="text-sm text-blue-600 mt-2">🔄 업데이트된 버전</p>
       </Card>
     )
   }
 
   return (
     <div className="space-y-4">
-      {/* 장바구니 항목들 */}
+      {/* 업데이트 확인용 헤더 */}
+      <Card className="bg-green-50 border-green-200">
+        <div className="text-sm text-green-700">
+          ✅ Cart 컴포넌트가 업데이트되었습니다!
+          {isCheckingStock && <span className="ml-2">⏳ 재고 확인 중...</span>}
+        </div>
+      </Card>
+
+      {/* 기존 장바구니 항목들 */}
       {items.map((item) => (
         <Card key={item.product.id} className="flex items-center space-x-4">
           {/* 상품 이미지 */}
@@ -137,8 +121,13 @@ const Cart: React.FC<CartProps> = ({ onCheckout }) => {
           <Button variant="secondary" onClick={clearCart} className="flex-1">
             장바구니 비우기
           </Button>
-          <Button variant="primary" onClick={handleCheckoutClick} className="flex-1" loading={isCheckingStock}>
-            {isCheckingStock ? '🔄 재고 확인중...' : '🎉 주문하기 (업데이트됨)'}
+          <Button 
+            variant="primary" 
+            onClick={handleCheckoutClick} 
+            className="flex-1" 
+            loading={isCheckingStock}
+          >
+            {isCheckingStock ? '재고 확인중...' : '🆕 주문하기 (업데이트됨)'}
           </Button>
         </div>
       </Card>
