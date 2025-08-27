@@ -1,3 +1,4 @@
+// /components/admin/AdminLayout.tsx
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Button } from '../common'
@@ -18,14 +19,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     }
   }
 
-  const isActive = (path: string) => {
-    return location.pathname === path
-  }
+  const isActive = (path: string) => location.pathname === path
 
   const navItems = [
     { path: ROUTES.ADMIN_DASHBOARD, label: '대시보드', icon: '📊' },
-    { path: ROUTES.ADMIN_ORDERS, label: '주문 관리', icon: '📋' },
-    { path: ROUTES.ADMIN_PRODUCTS, label: '상품 관리', icon: '🛍️' }
+    { path: ROUTES.ADMIN_ORDERS,    label: '주문 관리', icon: '📋' },
+    { path: ROUTES.ADMIN_PRODUCTS,  label: '상품 관리', icon: '🛍️' }
   ]
 
   return (
@@ -34,23 +33,23 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center h-16">
-            {/* 로고 */}
             <Link to={ROUTES.ADMIN_DASHBOARD} className="flex items-center space-x-2">
               <span className="text-2xl">🍎</span>
               <div>
                 <h1 className="text-lg font-bold text-gray-900">과일가게 관리</h1>
                 <p className="text-xs text-gray-600">
-                  {user?.role === 'admin' ? '마스터 관리자' : `${user?.store_id}번 점포`}
+                  {user
+                    ? (user.role === 'admin' ? '마스터 관리자' : `${user.store_id ?? '-'}번 점포`)
+                    : '인증 필요'}
                 </p>
               </div>
             </Link>
 
-            {/* 네비게이션 메뉴 */}
             <nav className="hidden md:flex items-center space-x-1">
               {navItems.map((item) => (
                 <Link key={item.path} to={item.path}>
                   <Button
-                    variant={isActive(item.path) ? "primary" : "outline"}
+                    variant={isActive(item.path) ? 'primary' : 'outline'}
                     size="sm"
                     className="flex items-center space-x-1"
                   >
@@ -61,12 +60,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               ))}
             </nav>
 
-            {/* 사용자 정보 */}
             <div className="flex items-center space-x-3">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">{user?.email}</p>
+                <p className="text-sm font-medium text-gray-900">{user?.email ?? '-'}</p>
                 <p className="text-xs text-gray-600">
-                  {user?.role === 'admin' ? '관리자' : '매장 관리자'}
+                  {user ? (user.role === 'admin' ? '관리자' : '매장 관리자') : '로그인 필요'}
                 </p>
               </div>
               <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -84,7 +82,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             {navItems.map((item) => (
               <Link key={item.path} to={item.path} className="flex-shrink-0">
                 <Button
-                  variant={isActive(item.path) ? "primary" : "outline"}
+                  variant={isActive(item.path) ? 'primary' : 'outline'}
                   size="sm"
                   className="flex items-center space-x-1 whitespace-nowrap"
                 >
@@ -97,12 +95,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
       </nav>
 
-      {/* 메인 콘텐츠 */}
-      <main className="flex-1">
-        {children}
-      </main>
+      <main className="flex-1">{children}</main>
 
-      {/* 푸터 */}
       <footer className="bg-white border-t border-gray-200 py-4">
         <div className="container mx-auto px-4">
           <div className="text-center text-sm text-gray-600">
