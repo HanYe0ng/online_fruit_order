@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, Card } from '../common'
-import { useAuth } from '../../hooks/useAuth'
 import { ROUTES } from '../../utils/constants'
+import { supabase } from '../../services/supabase'
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -10,7 +10,6 @@ const LoginForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,16 +24,36 @@ const LoginForm: React.FC = () => {
     setIsLoading(true)
 
     try {
-      const { user, error: loginError } = await login(email, password)
+      console.log('직접 로그인 시도 시작')
       
+      // useAuth 우회하고 직접 Supabase 호출
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      console.log('로그인 결과:', { hasUser: !!data.user, error: loginError?.message })
+
       if (loginError) {
-        setError(loginError)
-      } else if (user) {
-        // 로그인 성공시 대시보드로 이동
-        navigate(ROUTES.ADMIN_DASHBOARD)
+        setError(loginError.message)
+        return
       }
-    } catch (error) {
-      setError('로그인 중 오류가 발생했습니다.')
+
+      if (data.user) {
+        console.log('로그인 성공, 대시보드로 이동')
+        
+        // 세션 확인
+        const { data: session } = await supabase.auth.getSession()
+        console.log('현재 세션:', !!session.session)
+
+        // 직접 리디렉션 (useAuth 상태 관리 우회)
+        window.location.href = ROUTES.ADMIN_DASHBOARD
+      } else {
+        setError('로그인에 실패했습니다.')
+      }
+    } catch (error: any) {
+      console.error('로그인 중 예외 발생:', error)
+      setError(error.message || '로그인 중 오류가 발생했습니다.')
     } finally {
       setIsLoading(false)
     }
@@ -91,4 +110,4 @@ const LoginForm: React.FC = () => {
   )
 }
 
-export {LoginForm}
+export { LoginForm }
