@@ -10,18 +10,24 @@ export interface InputProps {
   disabled?: boolean
   required?: boolean
   className?: string
+  min?: string | number
+  max?: string | number
+  step?: string | number
 }
 
-const Input = forwardRef<HTMLInputElement, InputProps>(({
-  label,
-  placeholder,
-  type = 'text',
-  value,
-  onChange,
-  error,
-  disabled = false,
-  required = false,
-  className = ''
+const Input = forwardRef<HTMLInputElement, InputProps>(({ 
+label,
+placeholder,
+type = 'text',
+value,
+onChange,
+error,
+disabled = false,
+required = false,
+className = '',
+  min,
+  max,
+  step
 }, ref) => {
   const inputClasses = `
     w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -46,6 +52,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
         placeholder={placeholder}
         disabled={disabled}
         required={required}
+        min={min}
+        max={max}
+        step={step}
         className={inputClasses}
       />
       {error && (

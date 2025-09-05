@@ -5,7 +5,7 @@ import { ProductCard } from '../../components/customer'
 import { useCartStore } from '../../stores/cartStore'
 import { ROUTES } from '../../utils/constants'
 import { supabase } from '../../services/supabase'
-import type { Product as UiProduct } from '../../types/product' // <-- UI 타입(가격 number)
+import type { Product as UiProduct } from '../../types/product'
 
 type Store = {
   id: number
@@ -29,6 +29,7 @@ const HomePage: React.FC = () => {
   const [stores, setStores] = useState<Store[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null)
   const [products, setProducts] = useState<DbProduct[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<'today' | 'gift'>('today')
   const [isLoadingStores, setIsLoadingStores] = useState<boolean>(true)
   const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true)
   const { getTotalItems } = useCartStore()
@@ -134,22 +135,42 @@ const HomePage: React.FC = () => {
     [products]
   )
 
+  /** 카테고리별 상품 필터링 */
+  const filteredProducts = useMemo(() => {
+    // 현재는 메모리에서 카테고리 구분을 위해 상품명에 키워드를 포함한 상품들로 필터링
+    // 실제로는 DB에 category 컨럼을 추가하는 것이 좋음
+    if (selectedCategory === 'gift') {
+      // '선물', '기프트', 'gift' 등의 키워드가 포함된 상품
+      return availableDbProducts.filter(p => 
+        p.name.toLowerCase().includes('선물') || 
+        p.name.toLowerCase().includes('기프트') ||
+        p.name.toLowerCase().includes('gift')
+      )
+    }
+    // '오늘의 과일'은 선물용이 아닌 나머지 모든 상품
+    return availableDbProducts.filter(p => 
+      !p.name.toLowerCase().includes('선물') && 
+      !p.name.toLowerCase().includes('기프트') &&
+      !p.name.toLowerCase().includes('gift')
+    )
+  }, [availableDbProducts, selectedCategory])
+
   /** UI에 맞게 매핑(가격 null → 0 등) */
   const availableUiProducts: UiProduct[] = useMemo(
     () =>
-      availableDbProducts.map((p) => ({
+      filteredProducts.map((p) => ({
         // UiProduct 구조에 맞게 채우세요.
         // 아래는 UiProduct가 DbProduct와 필드명이 동일하다고 가정
         id: p.id,
         store_id: p.store_id,
         name: p.name,
-        price: p.price ?? 0,            // ✅ 핵심: null → 0 변환
+        price: p.price ?? 0,
         quantity: p.quantity,
         image_url: p.image_url ?? '',
         is_soldout: p.is_soldout,
         created_at: p.created_at,
       })),
-    [availableDbProducts]
+    [filteredProducts]
   )
 
   const currentStoreName =
@@ -161,19 +182,14 @@ const HomePage: React.FC = () => {
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">🍎 달콤네</h1>
-              <p className="text-sm text-gray-600">집까지 배달해드립니다!</p>
-            </div>
+            <Link to={ROUTES.HOME} className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">🍎 달콤네</h1>
+                <p className="text-sm text-gray-600">집까지 배달해드립니다!</p>
+              </div>
+            </Link>
 
             <div className="flex items-center gap-3">
-              {/* 관리자 로그인 버튼 */}
-              <Link to={ROUTES.ADMIN_LOGIN}>
-                <Button variant="outline" size="sm">
-                  관리자 로그인
-                </Button>
-              </Link>
-
               {/* 장바구니 버튼 */}
               <Link to={ROUTES.CART}>
                 <Button variant="primary" className="relative">
@@ -219,9 +235,27 @@ const HomePage: React.FC = () => {
         <div className="mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-900">
-              🛒 {currentStoreName} – 신선한 상품들
+              🛒 {currentStoreName}
             </h2>
             <p className="text-sm text-gray-600">{availableUiProducts.length}개 상품</p>
+          </div>
+
+          {/* 카테고리 탭 */}
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant={selectedCategory === 'today' ? 'primary' : 'outline'}
+              onClick={() => setSelectedCategory('today')}
+              className="whitespace-nowrap"
+            >
+              🍎 오늘의 과일
+            </Button>
+            <Button
+              variant={selectedCategory === 'gift' ? 'primary' : 'outline'}
+              onClick={() => setSelectedCategory('gift')}
+              className="whitespace-nowrap"
+            >
+              🎁 과일선물
+            </Button>
           </div>
 
           {isLoadingProducts ? (
@@ -231,7 +265,7 @@ const HomePage: React.FC = () => {
               {availableUiProducts.map((product) => (
                 <ProductCard
                   key={product.id}
-                  product={product} // ✅ UiProduct 전달
+                  product={product} 
                   onAddToCart={(p) => {
                     console.log(`${p.name}이(가) 장바구니에 추가되었습니다.`)
                   }}

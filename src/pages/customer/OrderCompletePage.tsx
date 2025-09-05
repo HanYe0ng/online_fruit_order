@@ -5,11 +5,26 @@ import { ROUTES } from '../../utils/constants'
 
 const OrderCompletePage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="max-w-md w-full mx-4">
-        <Card className="text-center py-12">
-          {/* 성공 아이콘 */}
-          <div className="text-6xl mb-4">✅</div>
+    <div className="min-h-screen bg-gray-50">
+      {/* 헤더 */}
+      <header className="bg-white shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-center">
+            <Link to={ROUTES.HOME} className="hover:opacity-80 transition-opacity">
+              <div className="text-center">
+                <h1 className="text-xl font-bold text-gray-900">🍎 달콤네</h1>
+                <p className="text-sm text-gray-600">집까지 배달해드립니다!</p>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex items-center justify-center min-h-[calc(100vh-80px)]">
+        <div className="max-w-md w-full mx-4">
+          <Card className="text-center py-12">
+            {/* 성공 아이콘 */}
+            <div className="text-6xl mb-4">✅</div>
           
           <h1 className="text-2xl font-bold text-gray-900 mb-2">주문 완료!</h1>
           <p className="text-gray-600 mb-6">
@@ -41,7 +56,8 @@ const OrderCompletePage: React.FC = () => {
             </Link>
           </div>
         </Card>
-      </div>
+        </div>
+      </main>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card } from '../../components/common'
 import { 
+  AdminLayout,
   DashboardStats, 
   OrderTrends, 
   PopularProducts, 
@@ -31,24 +32,25 @@ const DashboardPage: React.FC = () => {
   const orders = ordersResponse?.data || null
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* 헤더 */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">📊 대시보드</h1>
-          <p className="text-gray-600 mt-1">
-            {user?.role === 'admin' ? '전체' : `${user?.store_id}번 점포`} 현황을 한눈에 확인하세요
-          </p>
+    <AdminLayout>
+      <div className="container mx-auto px-4 py-8">
+        {/* 헤더 */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">📊 대시보드</h1>
+            <p className="text-gray-600 mt-1">
+              {user?.role === 'admin' ? '전체' : `${user?.store_id}번 점포`} 현황을 한눈에 확인하세요
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            <Link to={ROUTES.ADMIN_PRODUCTS}>
+              <Button variant="outline" size="sm">상품 관리</Button>
+            </Link>
+            <Link to={ROUTES.ADMIN_ORDERS}>
+              <Button variant="primary" size="sm">주문 관리</Button>
+            </Link>
+          </div>
         </div>
-        <div className="flex space-x-3">
-          <Link to={ROUTES.ADMIN_PRODUCTS}>
-            <Button variant="outline" size="sm">상품 관리</Button>
-          </Link>
-          <Link to={ROUTES.ADMIN_ORDERS}>
-            <Button variant="primary" size="sm">주문 관리</Button>
-          </Link>
-        </div>
-      </div>
 
       {/* 통계 카드 */}
       <DashboardStats stats={stats} isLoading={statsLoading} />
@@ -126,24 +128,25 @@ const DashboardPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* 환영 메시지 (첫 방문자용) */}
-      {stats && stats.totalOrders === 0 && (
-        <Card className="mt-6 bg-blue-50 border-blue-200">
-          <div className="text-center py-8">
-            <div className="text-4xl mb-4">🎉</div>
-            <h3 className="text-lg font-semibold text-blue-900 mb-2">
-              과일가게 관리 시스템에 오신 것을 환영합니다!
-            </h3>
-            <p className="text-blue-800 mb-4">
-              첫 번째 상품을 등록하고 주문을 받아보세요.
-            </p>
-            <Link to={ROUTES.ADMIN_PRODUCTS}>
-              <Button variant="primary">첫 상품 등록하기</Button>
-            </Link>
-          </div>
-        </Card>
-      )}
-    </div>
+        {/* 환영 메시지 (첫 방문자용) */}
+        {stats && stats.totalOrders === 0 && (
+          <Card className="mt-6 bg-blue-50 border-blue-200">
+            <div className="text-center py-8">
+              <div className="text-4xl mb-4">🎉</div>
+              <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                과일가게 관리 시스템에 오신 것을 환영합니다!
+              </h3>
+              <p className="text-blue-800 mb-4">
+                첫 번째 상품을 등록하고 주문을 받아보세요.
+              </p>
+              <Link to={ROUTES.ADMIN_PRODUCTS}>
+                <Button variant="primary">첫 상품 등록하기</Button>
+              </Link>
+            </div>
+          </Card>
+        )}
+      </div>
+    </AdminLayout>
   )
 }
 

@@ -26,7 +26,9 @@ const CartPage: React.FC = () => {
                 ← 뒤로가기
               </Button>
             </Link>
-            <h1 className="text-xl font-bold text-gray-900">🛒 장바구니</h1>
+            <Link to={ROUTES.HOME} className="hover:opacity-80 transition-opacity">
+              <h1 className="text-xl font-bold text-gray-900">🛒 장바구니</h1>
+            </Link>
           </div>
         </div>
       </header>

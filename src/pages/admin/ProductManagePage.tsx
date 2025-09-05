@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Button, Card, ErrorBoundary, ProductCardSkeleton, NetworkError } from '../../components/common'
-import { ProductForm, ProductList } from '../../components/admin'
+import { AdminLayout, ProductForm, ProductList } from '../../components/admin'
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useToggleSoldOut } from '../../hooks/useProducts'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
@@ -127,22 +127,25 @@ const ProductManagePage: React.FC = () => {
   // 에러 상태 처리
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">상품 관리</h1>
+      <AdminLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">상품 관리</h1>
+          </div>
+          <NetworkError 
+            title="데이터를 불러올 수 없습니다"
+            message="네트워크 연결을 확인하고 다시 시도해주세요."
+            onRetry={() => refetch()}
+          />
         </div>
-        <NetworkError 
-          title="데이터를 불러올 수 없습니다"
-          message="네트워크 연결을 확인하고 다시 시도해주세요."
-          onRetry={() => refetch()}
-        />
-      </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <ErrorBoundary>
-      <div className="container mx-auto px-4 py-8">
+    <AdminLayout>
+      <ErrorBoundary>
+        <div className="container mx-auto px-4 py-8">
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -234,8 +237,9 @@ const ProductManagePage: React.FC = () => {
           initialData={editingProduct}
           title={editingProduct ? '상품 수정' : '새 상품 등록'}
         />
-      </div>
-    </ErrorBoundary>
+        </div>
+      </ErrorBoundary>
+    </AdminLayout>
   )
 }
 

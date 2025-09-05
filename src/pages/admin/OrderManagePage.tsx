@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Loading } from '../../components/common'
-import { OrderCard, OrderStats, OrderFilters } from '../../components/admin'
+import { AdminLayout, OrderCard, OrderStats, OrderFilters } from '../../components/admin'
 import { useOrders } from '../../hooks/useOrder'
 import { useAuth } from '../../hooks/useAuth'
 import { ORDER_STATUS } from '../../utils/constants'
@@ -63,7 +63,8 @@ const OrderManagePage: React.FC = () => {
   )
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <AdminLayout>
+      <div className="container mx-auto px-4 py-8">
       {/* 헤더 */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -118,7 +119,8 @@ const OrderManagePage: React.FC = () => {
           )}
         </>
       )}
-    </div>
+      </div>
+    </AdminLayout>
   )
 }
 

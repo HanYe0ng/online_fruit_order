@@ -35,10 +35,12 @@ const ProductPage: React.FC = () => {
                   ← 홈
                 </Button>
               </Link>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">🍎 전체 상품</h1>
-                <p className="text-sm text-gray-600">{filteredProducts.length}개 상품</p>
-              </div>
+              <Link to={ROUTES.HOME} className="hover:opacity-80 transition-opacity">
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">🍎 전체 상품</h1>
+                  <p className="text-sm text-gray-600">{filteredProducts.length}개 상품</p>
+                </div>
+              </Link>
             </div>
             
             <Link to={ROUTES.CART}>

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { Button, Input, Modal } from '../common'
 import { ProductFormData, Product } from '../../types/product'
+import { compressImage, validateImageFile } from '../../utils/imageUtils'
 
 interface ProductFormProps {
   isOpen: boolean
@@ -20,30 +21,74 @@ const ProductForm: React.FC<ProductFormProps> = ({
   title = '상품 등록'
 }) => {
   const [formData, setFormData] = useState<ProductFormData>({
-    name: initialData?.name || '',
-    price: initialData?.price || 0,
-    quantity: initialData?.quantity || 0,
+    name: initialData?.name || '샤과',
+    price: initialData?.price || 5000,
+    quantity: initialData?.quantity || 10,
     image: null
   })
   const [preview, setPreview] = useState<string | null>(initialData?.image_url || null)
+  const [isCompressing, setIsCompressing] = useState(false)
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      setFormData(prev => ({ ...prev, image: file }))
+    if (!file) return
+
+    // 이미지 검증
+    const validation = validateImageFile(file)
+    if (!validation.isValid) {
+      setErrors(prev => ({ ...prev, image: validation.error || '' }))
+      return
+    }
+
+    setErrors(prev => ({ ...prev, image: '' }))
+    setIsCompressing(true)
+
+    try {
+      // 이미지 압축
+      const compressedFile = await compressImage(file)
+      setFormData(prev => ({ ...prev, image: compressedFile }))
       
       // 미리보기 생성
       const reader = new FileReader()
       reader.onload = (e) => {
         setPreview(e.target?.result as string)
       }
-      reader.readAsDataURL(file)
+      reader.readAsDataURL(compressedFile)
+    } catch (error) {
+      setErrors(prev => ({ ...prev, image: '이미지 처리 중 오류가 발생했습니다.' }))
+    } finally {
+      setIsCompressing(false)
     }
+  }
+
+  const validateForm = (): boolean => {
+    const newErrors: { [key: string]: string } = {}
+
+    if (!formData.name.trim()) {
+      newErrors.name = '상품명을 입력해주세요.'
+    }
+
+    if (formData.price <= 0) {
+      newErrors.price = '가격은 0보다 커야 합니다.'
+    }
+
+    if (formData.quantity < 0) {
+      newErrors.quantity = '수량은 0 이상이어야 합니다.'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!validateForm()) {
+      return
+    }
+    
     onSubmit(formData)
   }
 
@@ -80,30 +125,40 @@ const ProductForm: React.FC<ProductFormProps> = ({
           </label>
           <div className="flex items-center space-x-4">
             <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-              {preview ? (
+              {isCompressing ? (
+                <div className="flex flex-col items-center">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-1"></div>
+                  <span className="text-xs text-gray-500">압축중</span>
+                </div>
+              ) : preview ? (
                 <img src={preview} alt="Preview" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-gray-400 text-xs">이미지 없음</span>
               )}
             </div>
-            <div>
+            <div className="flex-1">
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handleImageChange}
                 className="hidden"
+                disabled={isCompressing}
               />
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={isCompressing}
               >
-                이미지 선택
+                {isCompressing ? '이미지 처리중...' : '이미지 선택'}
               </Button>
               <p className="text-xs text-gray-500 mt-1">
-                JPG, PNG 파일만 업로드 가능
+                JPG, PNG, WEBP 파일 (5MB 이하)
               </p>
+              {errors.image && (
+                <p className="text-xs text-red-500 mt-1">{errors.image}</p>
+              )}
             </div>
           </div>
         </div>
@@ -114,6 +169,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
           value={formData.name}
           onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
           placeholder="상품명을 입력하세요"
+          error={errors.name}
           required
         />
 
@@ -124,6 +180,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
           value={formData.price}
           onChange={(e) => setFormData(prev => ({ ...prev, price: parseInt(e.target.value) || 0 }))}
           placeholder="0"
+          error={errors.price}
+          min={1}
           required
         />
 
@@ -134,6 +192,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
           value={formData.quantity}
           onChange={(e) => setFormData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))}
           placeholder="0"
+          error={errors.quantity}
+          min={0}
           required
         />
 
