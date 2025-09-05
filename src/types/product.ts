@@ -6,6 +6,7 @@ export interface Product {
   quantity: number
   image_url: string | null
   is_soldout: boolean
+  category?: 'today' | 'gift' // 옵셔널로 변경 (하위 호환성)
   created_at: string
 }
 
@@ -13,6 +14,7 @@ export interface ProductFormData {
   name: string
   price: number
   quantity: number
+  category: 'today' | 'gift'
   image?: File | null
 }
 

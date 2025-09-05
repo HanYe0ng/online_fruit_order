@@ -24,6 +24,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     name: initialData?.name || '샤과',
     price: initialData?.price || 5000,
     quantity: initialData?.quantity || 10,
+    category: initialData?.category || 'today',
     image: null
   })
   const [preview, setPreview] = useState<string | null>(initialData?.image_url || null)
@@ -97,6 +98,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       name: '',
       price: 0,
       quantity: 0,
+      category: 'today',
       image: null
     })
     setPreview(null)
@@ -172,6 +174,43 @@ const ProductForm: React.FC<ProductFormProps> = ({
           error={errors.name}
           required
         />
+
+        {/* 카테고리 선택 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            카테고리
+          </label>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, category: 'today' }))}
+              className={`flex-1 px-4 py-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                formData.category === 'today'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              🍎 오늘의 과일
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, category: 'gift' }))}
+              className={`flex-1 px-4 py-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                formData.category === 'gift'
+                  ? 'border-purple-500 bg-purple-50 text-purple-700'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              🎁 과일선물
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {formData.category === 'today' 
+              ? '일반 과일 또는 간식용 상품' 
+              : '선물용 과일 또는 기프트 세트'
+            }
+          </p>
+        </div>
 
         {/* 가격 */}
         <Input

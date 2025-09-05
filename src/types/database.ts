@@ -73,6 +73,7 @@ export interface Database {
           quantity: number
           image_url: string | null
           is_soldout: boolean
+          category?: string // 옵셔널로 변경
           created_at: string
         }
         Insert: {
@@ -83,6 +84,7 @@ export interface Database {
           quantity: number
           image_url?: string | null
           is_soldout?: boolean
+          category?: string
           created_at?: string
         }
         Update: {
@@ -93,6 +95,7 @@ export interface Database {
           quantity?: number
           image_url?: string | null
           is_soldout?: boolean
+          category?: string
           created_at?: string
         }
       }

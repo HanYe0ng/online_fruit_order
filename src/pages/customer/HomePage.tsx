@@ -22,6 +22,7 @@ type DbProduct = {
   quantity: number
   image_url: string | null
   is_soldout: boolean
+  category?: string // 옵션널로 설정 (하위 호환성)
   created_at: string
 }
 
@@ -137,22 +138,23 @@ const HomePage: React.FC = () => {
 
   /** 카테고리별 상품 필터링 */
   const filteredProducts = useMemo(() => {
-    // 현재는 메모리에서 카테고리 구분을 위해 상품명에 키워드를 포함한 상품들로 필터링
-    // 실제로는 DB에 category 컨럼을 추가하는 것이 좋음
-    if (selectedCategory === 'gift') {
-      // '선물', '기프트', 'gift' 등의 키워드가 포함된 상품
-      return availableDbProducts.filter(p => 
-        p.name.toLowerCase().includes('선물') || 
-        p.name.toLowerCase().includes('기프트') ||
-        p.name.toLowerCase().includes('gift')
-      )
-    }
-    // '오늘의 과일'은 선물용이 아닌 나머지 모든 상품
-    return availableDbProducts.filter(p => 
-      !p.name.toLowerCase().includes('선물') && 
-      !p.name.toLowerCase().includes('기프트') &&
-      !p.name.toLowerCase().includes('gift')
-    )
+    // 이제 category 필드를 사용하여 필터링
+    return availableDbProducts.filter(p => {
+      // category 필드가 있으면 그것을 사용, 없으면 기존 로직 사용 (하위 호환성)
+      if ('category' in p && p.category) {
+        return p.category === selectedCategory
+      }
+      
+      // 기존 로직 (하위 호환성을 위해 유지)
+      if (selectedCategory === 'gift') {
+        return p.name.toLowerCase().includes('선물') || 
+               p.name.toLowerCase().includes('기프트') ||
+               p.name.toLowerCase().includes('gift')
+      }
+      return !p.name.toLowerCase().includes('선물') && 
+             !p.name.toLowerCase().includes('기프트') &&
+             !p.name.toLowerCase().includes('gift')
+    })
   }, [availableDbProducts, selectedCategory])
 
   /** UI에 맞게 매핑(가격 null → 0 등) */
@@ -168,6 +170,7 @@ const HomePage: React.FC = () => {
         quantity: p.quantity,
         image_url: p.image_url ?? '',
         is_soldout: p.is_soldout,
+        category: (p.category as 'today' | 'gift') || 'today', // 기본값 설정
         created_at: p.created_at,
       })),
     [filteredProducts]

@@ -20,14 +20,18 @@ const ProductList: React.FC<ProductListProps> = ({
   onRefresh
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'today' | 'gift'>('all')
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; productId: number | null }>({
     isOpen: false,
     productId: null
   })
 
-  const filteredProducts = products?.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || []
+  const filteredProducts = products?.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const productCategory = product.category || 'today' // 기본값 설정
+    const matchesCategory = categoryFilter === 'all' || productCategory === categoryFilter
+    return matchesSearch && matchesCategory
+  }) || []
 
   const handleDeleteClick = (productId: number) => {
     setDeleteModal({ isOpen: true, productId })
@@ -46,18 +50,45 @@ const ProductList: React.FC<ProductListProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* 검색 및 새로고침 */}
-      <div className="flex justify-between items-center">
-        <div className="flex-1 max-w-md">
-          <Input
-            placeholder="상품명으로 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      {/* 검색 및 필터 */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="flex-1 max-w-md">
+            <Input
+              placeholder="상품명으로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button variant="outline" onClick={onRefresh}>
+            새로고침
+          </Button>
         </div>
-        <Button variant="outline" onClick={onRefresh}>
-          새로고침
-        </Button>
+        
+        {/* 카테고리 필터 */}
+        <div className="flex gap-2">
+          <Button
+            variant={categoryFilter === 'all' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setCategoryFilter('all')}
+          >
+            전체
+          </Button>
+          <Button
+            variant={categoryFilter === 'today' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setCategoryFilter('today')}
+          >
+            🍎 오늘의 과일
+          </Button>
+          <Button
+            variant={categoryFilter === 'gift' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setCategoryFilter('gift')}
+          >
+            🎁 과일선물
+          </Button>
+        </div>
       </div>
 
       {/* 상품 목록 */}
@@ -90,7 +121,17 @@ const ProductList: React.FC<ProductListProps> = ({
 
             {/* 상품 정보 */}
             <div className="space-y-2">
-              <h3 className="font-medium text-gray-900 truncate">{product.name}</h3>
+              <div className="flex justify-between items-start">
+                <h3 className="font-medium text-gray-900 truncate flex-1">{product.name}</h3>
+                {/* 카테고리 배지 */}
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                  (product.category || 'today') === 'gift' 
+                    ? 'bg-purple-100 text-purple-700' 
+                    : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {(product.category || 'today') === 'gift' ? '🎁 선물' : '🍎 오늘'}
+                </span>
+              </div>
               <p className="text-lg font-bold text-blue-600">
                 {product.price.toLocaleString()}원
               </p>
