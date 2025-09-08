@@ -13,7 +13,6 @@ type Store = {
   location: string | null
 }
 
-// DB에서 읽어오는 원본 타입 (price가 nullable)
 type DbProduct = {
   id: number
   store_id: number
@@ -22,7 +21,7 @@ type DbProduct = {
   quantity: number
   image_url: string | null
   is_soldout: boolean
-  category?: string // 옵션널로 설정 (하위 호환성)
+  category?: string
   created_at: string
 }
 
@@ -31,11 +30,11 @@ const HomePage: React.FC = () => {
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null)
   const [products, setProducts] = useState<DbProduct[]>([])
   const [selectedCategory, setSelectedCategory] = useState<'today' | 'gift'>('today')
+  const [logoError, setLogoError] = useState(false)
   const [isLoadingStores, setIsLoadingStores] = useState<boolean>(true)
   const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true)
   const { getTotalItems } = useCartStore()
 
-  /** 점포 목록 로드 */
   const fetchStores = useCallback(async () => {
     setIsLoadingStores(true)
     const { data, error } = await supabase
@@ -55,12 +54,11 @@ const HomePage: React.FC = () => {
     setIsLoadingStores(false)
   }, [selectedStoreId])
 
-  /** 상품 로드 */
   const fetchProducts = useCallback(async (storeId: number) => {
     setIsLoadingProducts(true)
     const { data, error } = await supabase
       .from('products')
-      .select('id, store_id, name, price, quantity, image_url, is_soldout, created_at')
+      .select('*')
       .eq('store_id', storeId)
       .order('created_at', { ascending: false })
 
@@ -68,17 +66,16 @@ const HomePage: React.FC = () => {
       console.error('[products.fetch] error:', error)
       setProducts([])
     } else {
+      console.log('[products.fetch] data:', data) // 디버깅용 로그
       setProducts((data || []) as DbProduct[])
     }
     setIsLoadingProducts(false)
   }, [])
 
-  /** 점포 목록 최초 로드 */
   useEffect(() => {
     fetchStores()
   }, [fetchStores])
 
-  /** 선택된 점포 변경 시 상품 조회 + 실시간 구독 */
   useEffect(() => {
     if (!selectedStoreId) return
 
@@ -130,22 +127,17 @@ const HomePage: React.FC = () => {
     }
   }, [selectedStoreId, fetchProducts])
 
-  /** 가용 상품 필터(DB 타입 유지) */
   const availableDbProducts = useMemo(
     () => products.filter((p) => !p.is_soldout && p.quantity > 0),
     [products]
   )
 
-  /** 카테고리별 상품 필터링 */
   const filteredProducts = useMemo(() => {
-    // 이제 category 필드를 사용하여 필터링
     return availableDbProducts.filter(p => {
-      // category 필드가 있으면 그것을 사용, 없으면 기존 로직 사용 (하위 호환성)
       if ('category' in p && p.category) {
         return p.category === selectedCategory
       }
       
-      // 기존 로직 (하위 호환성을 위해 유지)
       if (selectedCategory === 'gift') {
         return p.name.toLowerCase().includes('선물') || 
                p.name.toLowerCase().includes('기프트') ||
@@ -157,12 +149,9 @@ const HomePage: React.FC = () => {
     })
   }, [availableDbProducts, selectedCategory])
 
-  /** UI에 맞게 매핑(가격 null → 0 등) */
   const availableUiProducts: UiProduct[] = useMemo(
     () =>
       filteredProducts.map((p) => ({
-        // UiProduct 구조에 맞게 채우세요.
-        // 아래는 UiProduct가 DbProduct와 필드명이 동일하다고 가정
         id: p.id,
         store_id: p.store_id,
         name: p.name,
@@ -170,7 +159,7 @@ const HomePage: React.FC = () => {
         quantity: p.quantity,
         image_url: p.image_url ?? '',
         is_soldout: p.is_soldout,
-        category: (p.category as 'today' | 'gift') || 'today', // 기본값 설정
+        category: (p.category as 'today' | 'gift') || 'today',
         created_at: p.created_at,
       })),
     [filteredProducts]
@@ -180,91 +169,181 @@ const HomePage: React.FC = () => {
     stores.find((s) => s.id === selectedStoreId)?.name ?? '점포 선택'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--gray-50)' }}>
       {/* 헤더 */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
+      <header className="sticky top-0 z-40" style={{ 
+        background: 'rgba(255, 255, 255, 0.95)', 
+        backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid var(--gray-100)'
+      }}>
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <Link to={ROUTES.HOME} className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">🍎 달콤네</h1>
-                <p className="text-sm text-gray-600">집까지 배달해드립니다!</p>
-              </div>
+            <Link to={ROUTES.HOME} className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+              {!logoError ? (
+                <img 
+                  src="/logo.png" 
+                  alt="달콤네 로고" 
+                  className="h-12 w-auto object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <div style={{ 
+                    background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)',
+                    borderRadius: 'var(--radius)',
+                    padding: 'var(--spacing-sm)'
+                  }}>
+                    <span className="text-2xl">🍎</span>
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold" style={{ color: 'var(--gray-900)' }}>달콤네</h1>
+                    <p className="text-sm" style={{ color: 'var(--gray-600)' }}>신선한 과일을 집까지</p>
+                  </div>
+                </div>
+              )}
             </Link>
 
-            <div className="flex items-center gap-3">
-              {/* 장바구니 버튼 */}
-              <Link to={ROUTES.CART}>
-                <Button variant="primary" className="relative">
-                  장바구니
-                  {getTotalItems() > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {getTotalItems()}
-                    </span>
-                  )}
-                </Button>
-              </Link>
-            </div>
+            <Link to={ROUTES.CART}>
+              <button 
+                className="dalkomne-button-primary relative flex items-center space-x-2"
+                style={{ fontSize: '14px' }}
+              >
+                <span>🛒</span>
+                <span>장바구니</span>
+                {getTotalItems() > 0 && (
+                  <span 
+                    className="absolute -top-2 -right-2 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
+                    style={{ background: 'var(--dalkomne-peach)' }}
+                  >
+                    {getTotalItems()}
+                  </span>
+                )}
+              </button>
+            </Link>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6">
+        {/* FRESH ZONE 헤더 */}
+        <div 
+          className="text-center py-8 mb-8"
+          style={{
+            background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)',
+            borderRadius: 'var(--radius-lg)',
+            color: 'var(--white)'
+          }}
+        >
+          <h2 className="text-2xl font-bold mb-2">🍎 신선과일 FRESH ZONE</h2>
+          <p className="text-lg opacity-90">매일 새벽 배송되는 신선한 과일</p>
+        </div>
+
         {/* 점포 선택 */}
-        <Card className="mb-6">
-          <h2 className="text-lg font-semibold mb-3">🏪 점포 선택</h2>
+        <div className="dalkomne-card p-6 mb-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <div 
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)' }}
+            >
+              <span className="text-white text-xl">🏪</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--gray-900)' }}>매장 선택</h3>
+              <p className="text-sm" style={{ color: 'var(--gray-600)' }}>가장 가까운 매장을 선택해주세요</p>
+            </div>
+          </div>
 
           {isLoadingStores ? (
-            <Loading text="점포를 불러오는 중..." />
+            <Loading text="매장을 불러오는 중..." />
           ) : stores.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {stores.map((store) => (
-                <Button
+                <button
                   key={store.id}
-                  variant={selectedStoreId === store.id ? 'primary' : 'outline'}
                   onClick={() => setSelectedStoreId(store.id)}
-                  className="whitespace-nowrap"
+                  className="p-4 rounded-lg border-2 transition-all duration-300 text-left"
+                  style={{
+                    background: selectedStoreId === store.id 
+                      ? 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)' 
+                      : 'var(--white)',
+                    borderColor: selectedStoreId === store.id ? 'var(--dalkomne-orange)' : 'var(--gray-200)',
+                    color: selectedStoreId === store.id ? 'var(--white)' : 'var(--gray-900)',
+                    boxShadow: selectedStoreId === store.id ? 'var(--shadow-orange)' : 'none'
+                  }}
                 >
-                  {store.name}
-                </Button>
+                  <div className="font-semibold">{store.name}</div>
+                  {store.location && (
+                    <div className="text-sm mt-1 opacity-75">📍 {store.location}</div>
+                  )}
+                </button>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">등록된 점포가 없습니다.</p>
+            <p className="text-center py-8" style={{ color: 'var(--gray-500)' }}>등록된 매장이 없습니다.</p>
           )}
-        </Card>
+        </div>
 
-        {/* 상품 목록 */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              🛒 {currentStoreName}
-            </h2>
-            <p className="text-sm text-gray-600">{availableUiProducts.length}개 상품</p>
+        {/* 카테고리 탭 & 상품 목록 */}
+        <div className="dalkomne-card p-6">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center space-x-3">
+              <h2 className="text-xl font-bold" style={{ color: 'var(--gray-900)' }}>
+                {currentStoreName}
+              </h2>
+              <span 
+                className="px-3 py-1 rounded-full text-sm font-medium"
+                style={{ 
+                  background: 'var(--dalkomne-peach)', 
+                  color: 'var(--white)' 
+                }}
+              >
+                {availableUiProducts.length}개 상품
+              </span>
+            </div>
           </div>
 
-          {/* 카테고리 탭 */}
-          <div className="flex gap-2 mb-4">
-            <Button
-              variant={selectedCategory === 'today' ? 'primary' : 'outline'}
-              onClick={() => setSelectedCategory('today')}
-              className="whitespace-nowrap"
+          {/* 카테고리 네비게이션 */}
+          <div className="flex justify-center mb-8">
+            <div 
+              className="inline-flex rounded-full p-1"
+              style={{ background: 'var(--gray-100)' }}
             >
-              🍎 오늘의 과일
-            </Button>
-            <Button
-              variant={selectedCategory === 'gift' ? 'primary' : 'outline'}
-              onClick={() => setSelectedCategory('gift')}
-              className="whitespace-nowrap"
-            >
-              🎁 과일선물
-            </Button>
+              <button
+                onClick={() => setSelectedCategory('today')}
+                className="px-6 py-3 rounded-full font-semibold transition-all duration-300"
+                style={{
+                  background: selectedCategory === 'today' 
+                    ? 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)'
+                    : 'transparent',
+                  color: selectedCategory === 'today' ? 'var(--white)' : 'var(--gray-700)',
+                  boxShadow: selectedCategory === 'today' ? 'var(--shadow-orange)' : 'none'
+                }}
+              >
+                🍎 오늘의 과일
+              </button>
+              <button
+                onClick={() => setSelectedCategory('gift')}
+                className="px-6 py-3 rounded-full font-semibold transition-all duration-300"
+                style={{
+                  background: selectedCategory === 'gift' 
+                    ? 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)'
+                    : 'transparent',
+                  color: selectedCategory === 'gift' ? 'var(--white)' : 'var(--gray-700)',
+                  boxShadow: selectedCategory === 'gift' ? 'var(--shadow-orange)' : 'none'
+                }}
+              >
+                🎁 과일선물
+              </button>
+            </div>
           </div>
 
+          {/* 상품 목록 */}
           {isLoadingProducts ? (
-            <Loading text="상품을 불러오는 중..." />
+            <div className="py-12">
+              <Loading text="상품을 불러오는 중..." />
+            </div>
           ) : availableUiProducts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {availableUiProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -276,27 +355,66 @@ const HomePage: React.FC = () => {
               ))}
             </div>
           ) : (
-            <Card className="text-center py-12">
-              <p className="text-gray-500 mb-4">현재 판매 중인 상품이 없습니다.</p>
+            <div 
+              className="text-center py-16 rounded-lg"
+              style={{ background: 'var(--gray-50)' }}
+            >
+              <div className="text-6xl mb-4">🛒</div>
+              <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--gray-900)' }}>
+                {selectedCategory === 'today' ? '오늘의 과일' : '과일선물'} 상품이 없습니다
+              </h3>
+              <p className="mb-6" style={{ color: 'var(--gray-600)' }}>
+                곧 신선한 상품들을 준비해드릴게요!
+              </p>
               {selectedStoreId && (
-                <Button variant="outline" onClick={() => fetchProducts(selectedStoreId)}>
+                <button 
+                  onClick={() => fetchProducts(selectedStoreId)}
+                  className="dalkomne-button-primary"
+                >
                   새로고침
-                </Button>
+                </button>
               )}
-            </Card>
+            </div>
           )}
         </div>
 
-        {/* 안내 사항 */}
-        <Card className="bg-blue-50 border-blue-200">
-          <h3 className="text-lg font-semibold text-blue-900 mb-2">📋 주문 안내</h3>
-          <ul className="text-sm text-blue-800 space-y-1">
-            <li>• 신선한 과일을 당일 배달해드립니다</li>
-            <li>• 배달비는 무료입니다</li>
-            <li>• 주문 후 1–2시간 내 배달 완료</li>
-            <li>• 현금 또는 계좌이체로 결제해주세요</li>
-          </ul>
-        </Card>
+        {/* 매장 안내 */}
+        <div 
+          className="mt-8 p-6 rounded-lg"
+          style={{ 
+            background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)',
+            color: 'var(--white)'
+          }}
+        >
+          <div className="flex items-start space-x-4">
+            <div className="text-3xl">📢</div>
+            <div>
+              <h3 className="text-lg font-bold mb-3">🍎 달콤네 주문 안내</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span>✅</span>
+                    <span>매일 새벽 배송되는 신선한 과일</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span>🚚</span>
+                    <span>아파트 단지 내 무료 배달</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span>⏰</span>
+                    <span>주문 후 1-2시간 내 배달 완료</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span>💳</span>
+                    <span>현금 또는 계좌이체 결제</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   )

@@ -1,8 +1,6 @@
 import React, { useState } from 'react'
 import { Button, Card } from '../common'
 import { useCartStore } from '../../stores/cartStore'
-// import { useToast } from '../../hooks/useToast'
-// import { checkCartItemsStock } from '../../utils/stockCheck'
 
 interface CartProps {
   onCheckout?: () => void
@@ -11,38 +9,16 @@ interface CartProps {
 const Cart: React.FC<CartProps> = ({ onCheckout }) => {
   const { items, removeItem, updateQuantity, getTotalPrice, getTotalItems, clearCart } = useCartStore()
   const [isCheckingStock, setIsCheckingStock] = useState(false)
-  // const toast = useToast()
 
-  // 재고 확인 후 주문 진행
   const handleCheckoutClick = async () => {
     setIsCheckingStock(true)
     
     try {
-      // 임시로 2초 대기 (실제 재고 확인 시뮤레이션)
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // 임시로 성공으로 처리
+      await new Promise(resolve => setTimeout(resolve, 1000))
       console.log('재고 확인 완료 - 주문 진행!')
       onCheckout?.()
-      
-      // 나중에 주석 해제하고 사용:
-      // const stockResult = await checkCartItemsStock(items)
-      // 
-      // if (stockResult.isAvailable) {
-      //   onCheckout?.()
-      // } else {
-      //   const unavailableList = stockResult.unavailableItems
-      //     ?.map(item => `${item.productName} (요청: ${item.requestedQuantity}, 재고: ${item.availableQuantity})`)
-      //     .join('\n')
-      //   
-      //   toast.warning(
-      //     '재고 부족 상품 있음', 
-      //     `다음 상품들의 재고가 부족합니다:\n${unavailableList}\n\n수량을 조정해주세요.`
-      //   )
-      // }
     } catch (error) {
       console.error('Error:', error)
-      // toast.error('재고 확인 오류', '재고 확인 중 문제가 발생했습니다. 다시 시도해주세요.')
     } finally {
       setIsCheckingStock(false)
     }
@@ -50,98 +26,197 @@ const Cart: React.FC<CartProps> = ({ onCheckout }) => {
 
   if (items.length === 0) {
     return (
-      <Card className="text-center py-8">
-        <p className="text-gray-500">장바구니가 비어있습니다.</p>
-        <p className="text-sm text-green-600 mt-2">✅ Cart 컴포넌트 업데이트 완료!</p>
-      </Card>
+      <div className="dalkomne-card text-center py-8">
+        <p style={{ color: 'var(--gray-500)' }}>장바구니가 비어있습니다.</p>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      {/* 장바구니 항목들 */}
-      {items.map((item) => (
-        <Card key={item.product.id} className="flex items-center space-x-4">
-          {/* 상품 이미지 */}
-          <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-            {item.product.image_url ? (
-              <img
-                src={item.product.image_url}
-                alt={item.product.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                이미지 없음
+    <div className="space-y-6">
+      {/* 장바구니 아이템들 */}
+      <div className="space-y-4">
+        {items.map((item, index) => (
+          <div key={item.product.id} className="dalkomne-card">
+            <div className="flex items-center space-x-4 p-4">
+              {/* 상품 이미지 */}
+              <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0"
+                   style={{ background: 'var(--gray-50)' }}>
+                {item.product.image_url ? (
+                  <img
+                    src={item.product.image_url}
+                    alt={item.product.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center"
+                       style={{ color: 'var(--gray-400)' }}>
+                    <span className="text-2xl">🍎</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* 상품 정보 */}
-          <div className="flex-grow">
-            <h3 className="font-medium text-gray-900">{item.product.name}</h3>
-            <p className="text-blue-600 font-semibold">
-              {item.product.price.toLocaleString()}원
-            </p>
-          </div>
+              {/* 상품 정보 */}
+              <div className="flex-grow">
+                <h3 className="font-semibold mb-1" style={{ color: 'var(--gray-900)' }}>
+                  {item.product.name}
+                </h3>
+                <p className="font-bold" style={{ color: 'var(--dalkomne-orange)' }}>
+                  {item.product.price.toLocaleString()}원
+                </p>
+                {/* 카테고리 배지 */}
+                <div className="mt-2">
+                  <span 
+                    className="inline-block px-2 py-1 rounded-full text-xs font-medium"
+                    style={{
+                      background: (item.product.category || 'today') === 'gift' 
+                        ? 'var(--dalkomne-orange-soft)' 
+                        : 'var(--dalkomne-cream)',
+                      color: 'var(--dalkomne-orange-dark)'
+                    }}
+                  >
+                    {(item.product.category || 'today') === 'gift' ? '🎁 선물용' : '🍎 일반'}
+                  </span>
+                </div>
+              </div>
 
-          {/* 수량 조절 */}
-          <div className="flex items-center space-x-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-            >
-              -
-            </Button>
-            <span className="w-8 text-center">{item.quantity}</span>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-            >
-              +
-            </Button>
-          </div>
+              {/* 수량 조절 */}
+              <div className="flex flex-col items-center space-y-3">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                    style={{
+                      background: 'var(--gray-200)',
+                      color: 'var(--gray-600)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--dalkomne-orange)'
+                      e.currentTarget.style.color = 'var(--white)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--gray-200)'
+                      e.currentTarget.style.color = 'var(--gray-600)'
+                    }}
+                  >
+                    −
+                  </button>
+                  <span className="w-8 text-center font-semibold"
+                        style={{ color: 'var(--gray-900)' }}>
+                    {item.quantity}
+                  </span>
+                  <button
+                    onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                    style={{
+                      background: 'var(--dalkomne-orange)',
+                      color: 'var(--white)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--dalkomne-orange-dark)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--dalkomne-orange)'
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
 
-          {/* 소계 */}
-          <div className="w-20 text-right">
-            <p className="font-semibold text-gray-900">
-              {(item.product.price * item.quantity).toLocaleString()}원
-            </p>
-          </div>
+                {/* 삭제 버튼 */}
+                <button
+                  onClick={() => removeItem(item.product.id)}
+                  className="text-xs px-3 py-1 rounded-full border transition-colors"
+                  style={{
+                    borderColor: 'var(--gray-300)',
+                    color: 'var(--gray-600)',
+                    background: 'var(--white)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--error)'
+                    e.currentTarget.style.color = 'var(--error)'
+                    e.currentTarget.style.background = 'var(--white)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--gray-300)'
+                    e.currentTarget.style.color = 'var(--gray-600)'
+                    e.currentTarget.style.background = 'var(--white)'
+                  }}
+                >
+                  🗑️ 삭제
+                </button>
+              </div>
 
-          {/* 삭제 버튼 */}
-          <Button
-            size="sm"
-            variant="danger"
-            onClick={() => removeItem(item.product.id)}
-          >
-            삭제
-          </Button>
-        </Card>
-      ))}
+              {/* 소계 */}
+              <div className="text-right min-w-[80px]">
+                <p className="text-sm" style={{ color: 'var(--gray-600)' }}>소계</p>
+                <p className="text-lg font-bold" style={{ color: 'var(--dalkomne-orange)' }}>
+                  {(item.product.price * item.quantity).toLocaleString()}원
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* 총합 및 액션 */}
-      <Card className="bg-gray-50">
-        <div className="flex justify-between items-center mb-4">
-          <div className="text-lg">
-            <p className="text-gray-600">총 {getTotalItems()}개 상품</p>
+      <div className="dalkomne-card p-6"
+           style={{ background: 'linear-gradient(135deg, var(--dalkomne-cream) 0%, var(--white) 100%)' }}>
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <p style={{ color: 'var(--gray-600)' }}>총 {getTotalItems()}개 상품</p>
           </div>
-          <div className="text-xl font-bold text-blue-600">
-            총 {getTotalPrice().toLocaleString()}원
+          <div className="text-right">
+            <p className="text-sm" style={{ color: 'var(--gray-600)' }}>총 결제금액</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--dalkomne-orange)' }}>
+              {getTotalPrice().toLocaleString()}원
+            </p>
+          </div>
+        </div>
+
+        {/* 주의사항 */}
+        <div className="mb-6 p-4 rounded-lg"
+             style={{ background: 'var(--dalkomne-orange-soft)' }}>
+          <h4 className="font-semibold mb-2" style={{ color: 'var(--dalkomne-orange-dark)' }}>
+            📋 주문 안내
+          </h4>
+          <div className="text-sm space-y-1" style={{ color: 'var(--gray-700)' }}>
+            <p>• 배달 시 현금 또는 계좌이체로 결제</p>
+            <p>• 배달 예상 시간: 1-2시간</p>
+            <p>• 신선한 과일을 당일 배송해드립니다</p>
           </div>
         </div>
 
         <div className="flex space-x-3">
-          <Button variant="secondary" onClick={clearCart} className="flex-1">
-            장바구니 비우기
-          </Button>
-          <Button variant="primary" onClick={handleCheckoutClick} className="flex-1" loading={isCheckingStock}>
-            {isCheckingStock ? '🔄 재고 확인중...' : '🎉 주문하기 (업데이트됨)'}
-          </Button>
+          <button 
+            onClick={clearCart}
+            className="flex-1 py-3 px-4 rounded-lg border-2 font-semibold transition-all duration-300"
+            style={{
+              borderColor: 'var(--gray-300)',
+              color: 'var(--gray-600)',
+              background: 'var(--white)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--error)'
+              e.currentTarget.style.color = 'var(--error)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--gray-300)'
+              e.currentTarget.style.color = 'var(--gray-600)'
+            }}
+          >
+            🗑️ 장바구니 비우기
+          </button>
+          <button 
+            onClick={handleCheckoutClick}
+            disabled={isCheckingStock}
+            className="dalkomne-button-primary flex-1 py-3 px-4 font-semibold"
+            style={{ opacity: isCheckingStock ? 0.7 : 1 }}
+          >
+            {isCheckingStock ? '🔄 재고 확인중...' : '🎉 주문하기'}
+          </button>
         </div>
-      </Card>
+      </div>
     </div>
   )
 }

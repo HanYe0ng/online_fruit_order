@@ -30,13 +30,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     e.currentTarget.style.display = 'none'
-    e.currentTarget.nextElementSibling?.classList.remove('hidden')
+    const fallback = e.currentTarget.nextElementSibling as HTMLElement
+    if (fallback) {
+      fallback.classList.remove('hidden')
+    }
   }
 
   return (
-    <Card hover className="h-full flex flex-col">
+    <div className="dalkomne-product-card h-full flex flex-col">
       {/* 상품 이미지 */}
-      <div className="w-full h-48 bg-gray-100 rounded-lg mb-4 overflow-hidden flex-shrink-0 relative">
+      <div className="w-full h-48 bg-gray-50 overflow-hidden flex-shrink-0 relative">
         {product.image_url ? (
           <>
             <img
@@ -46,20 +49,36 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
               onError={handleImageError}
               loading="lazy"
             />
-            <div className="hidden w-full h-full flex items-center justify-center text-gray-400 text-sm absolute inset-0 bg-gray-100">
-              이미지 로드 실패
+            <div className="hidden w-full h-full flex items-center justify-center absolute inset-0"
+                 style={{ background: 'var(--gray-50)', color: 'var(--gray-400)' }}>
+              <span className="text-4xl">🍎</span>
             </div>
           </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400">
-            이미지 없음
+          <div className="w-full h-full flex items-center justify-center" 
+               style={{ color: 'var(--gray-400)' }}>
+            <span className="text-4xl">🍎</span>
           </div>
         )}
+
+        {/* 카테고리 배지 */}
+        <div 
+          className="absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium"
+          style={{
+            background: (product.category || 'today') === 'gift' ? 'var(--dalkomne-orange)' : 'var(--dalkomne-peach)',
+            color: 'var(--white)'
+          }}
+        >
+          {(product.category || 'today') === 'gift' ? '🎁' : '🍎'}
+        </div>
 
         {/* 품절 오버레이 */}
         {product.is_soldout && (
           <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
-            <span className="bg-red-500 text-white px-3 py-1 rounded-lg font-medium text-sm">
+            <span 
+              className="px-3 py-1 rounded-lg font-medium text-sm"
+              style={{ background: 'var(--error)', color: 'var(--white)' }}
+            >
               품절
             </span>
           </div>
@@ -67,15 +86,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
       </div>
 
       {/* 상품 정보 */}
-      <div className="flex-grow flex flex-col justify-between">
+      <div className="flex-grow flex flex-col justify-between p-4">
         <div className="space-y-2 mb-4">
-          <h3 className="font-medium text-gray-900 line-clamp-2" title={product.name}>
+          <h3 
+            className="font-semibold line-clamp-2" 
+            style={{ color: 'var(--gray-900)' }}
+            title={product.name}
+          >
             {product.name}
           </h3>
-          <p className="text-lg font-bold text-blue-600">
+          <p 
+            className="text-lg font-bold"
+            style={{ color: 'var(--dalkomne-orange)' }}
+          >
             {product.price.toLocaleString()}원
           </p>
-          <p className="text-sm text-gray-600">
+          <p 
+            className="text-sm"
+            style={{ color: 'var(--gray-600)' }}
+          >
             재고: {product.quantity}개
           </p>
         </div>
@@ -83,21 +112,38 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
         {/* 주문 버튼 */}
         <div className="mt-auto">
           {product.is_soldout ? (
-            <Button variant="secondary" disabled className="w-full">
+            <button 
+              disabled 
+              className="w-full py-3 rounded-lg font-semibold text-sm"
+              style={{ 
+                background: 'var(--gray-200)', 
+                color: 'var(--gray-500)'
+              }}
+            >
               품절
-            </Button>
+            </button>
           ) : product.quantity === 0 ? (
-            <Button variant="secondary" disabled className="w-full">
+            <button 
+              disabled 
+              className="w-full py-3 rounded-lg font-semibold text-sm"
+              style={{ 
+                background: 'var(--gray-200)', 
+                color: 'var(--gray-500)'
+              }}
+            >
               재고 없음
-            </Button>
+            </button>
           ) : (
-            <Button variant="primary" onClick={handleAddToCart} className="w-full">
-              장바구니 담기
-            </Button>
+            <button 
+              onClick={handleAddToCart} 
+              className="dalkomne-button-primary w-full py-3 text-sm"
+            >
+              🛒 장바구니 담기
+            </button>
           )}
         </div>
       </div>
-    </Card>
+    </div>
   )
 }
 
