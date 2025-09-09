@@ -363,10 +363,11 @@ const Cart: React.FC<CartProps> = ({ onCheckout }) => {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+        {/* 데스크톱에서만 버튼 표시, 모바일에서는 하단 고정 버튼 사용 */}
+        <div className="hidden sm:flex sm:flex-row sm:space-x-3">
           <button 
             onClick={clearCart}
-            className="flex-1 py-3 px-4 rounded-lg border-2 font-semibold transition-all duration-300 text-sm sm:text-base"
+            className="flex-1 py-3 px-4 rounded-lg border-2 font-semibold transition-all duration-300 text-base"
             style={{
               borderColor: 'var(--gray-300)',
               color: 'var(--gray-600)',
@@ -386,10 +387,33 @@ const Cart: React.FC<CartProps> = ({ onCheckout }) => {
           <button 
             onClick={handleCheckoutClick}
             disabled={isCheckingStock}
-            className="dalkomne-button-primary flex-1 py-3 px-4 font-semibold text-sm sm:text-base"
+            className="dalkomne-button-primary flex-1 py-3 px-4 font-semibold text-base"
             style={{ opacity: isCheckingStock ? 0.7 : 1 }}
           >
             {isCheckingStock ? '🔄 재고 확인중...' : '🎉 주문하기'}
+          </button>
+        </div>
+        
+        {/* 모바일에서만 장바구니 비우기 버튼 표시 */}
+        <div className="sm:hidden">
+          <button 
+            onClick={clearCart}
+            className="w-full py-3 px-4 rounded-lg border-2 font-semibold transition-all duration-300 text-sm"
+            style={{
+              borderColor: 'var(--gray-300)',
+              color: 'var(--gray-600)',
+              background: 'var(--white)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--error)'
+              e.currentTarget.style.color = 'var(--error)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--gray-300)'
+              e.currentTarget.style.color = 'var(--gray-600)'
+            }}
+          >
+            🗑️ 장바구니 비우기
           </button>
         </div>
       </div>
