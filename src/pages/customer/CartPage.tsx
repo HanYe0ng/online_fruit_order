@@ -9,7 +9,7 @@ const CartPage: React.FC = () => {
   const [isOrderFormOpen, setIsOrderFormOpen] = useState(false)
   const [logoError, setLogoError] = useState(false)
   const navigate = useNavigate()
-  const { items } = useCartStore()
+  const { items, giftItems } = useCartStore()
 
   const handleOrderSuccess = () => {
     setIsOrderFormOpen(false)
@@ -90,7 +90,7 @@ const CartPage: React.FC = () => {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          {items.length === 0 ? (
+          {items.length === 0 && giftItems.length === 0 ? (
             <div className="dalkomne-card text-center py-16">
               <div className="text-6xl mb-4">🛒</div>
               <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--gray-900)' }}>장바구니가 비어있습니다</h2>

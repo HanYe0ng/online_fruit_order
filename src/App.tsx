@@ -7,6 +7,7 @@ import HomePage from './pages/customer/HomePage'
 import ProductPage from './pages/customer/ProductPage'
 import CartPage from './pages/customer/CartPage'
 import OrderCompletePage from './pages/customer/OrderCompletePage'
+import GiftProductDetailPage from './pages/customer/GiftProductDetailPage'
 
 // Admin Pages
 import LoginPage from './pages/admin/LoginPage'
@@ -51,6 +52,7 @@ function App() {
               <Route path={ROUTES.PRODUCTS} element={<ProductPage />} />
               <Route path={ROUTES.CART} element={<CartPage />} />
               <Route path={ROUTES.ORDER_COMPLETE} element={<OrderCompletePage />} />
+              <Route path="/gift-product/:productId" element={<GiftProductDetailPage />} />
               
               {/* Admin Routes */}
               <Route path={ROUTES.ADMIN_LOGIN} element={<LoginPage />} />

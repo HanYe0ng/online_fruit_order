@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Loading } from '../../components/common'
 import { ProductCard } from '../../components/customer'
+import GiftProductCard from '../../components/customer/GiftProductCard'
 import { useCartStore } from '../../stores/cartStore'
 import { ROUTES } from '../../utils/constants'
 import { supabase } from '../../services/supabase'
+import { mockGiftProducts } from '../../data/mockData'
 import type { Product as UiProduct } from '../../types/product'
 
 type Store = {
@@ -66,7 +68,7 @@ const HomePage: React.FC = () => {
       console.error('[products.fetch] error:', error)
       setProducts([])
     } else {
-      console.log('[products.fetch] data:', data) // 디버깅용 로그
+      console.log('[products.fetch] data:', data)
       setProducts((data || []) as DbProduct[])
     }
     setIsLoadingProducts(false)
@@ -170,7 +172,6 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--gray-50)' }}>
-      {/* 헤더 */}
       <header className="sticky top-0 z-40" style={{ 
         background: 'rgba(255, 255, 255, 0.95)', 
         backdropFilter: 'blur(10px)',
@@ -225,7 +226,6 @@ const HomePage: React.FC = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        {/* FRESH ZONE 헤더 */}
         <div 
           className="text-center py-8 mb-8"
           style={{
@@ -238,7 +238,6 @@ const HomePage: React.FC = () => {
           <p className="text-lg opacity-90">매일 새벽 배송되는 신선한 과일</p>
         </div>
 
-        {/* 점포 선택 */}
         <div className="dalkomne-card p-6 mb-6">
           <div className="flex items-center space-x-3 mb-4">
             <div 
@@ -283,7 +282,6 @@ const HomePage: React.FC = () => {
           )}
         </div>
 
-        {/* 카테고리 탭 & 상품 목록 */}
         <div className="dalkomne-card p-6">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center space-x-3">
@@ -297,12 +295,11 @@ const HomePage: React.FC = () => {
                   color: 'var(--white)' 
                 }}
               >
-                {availableUiProducts.length}개 상품
+                {selectedCategory === 'gift' ? mockGiftProducts.length : availableUiProducts.length}개 상품
               </span>
             </div>
           </div>
 
-          {/* 카테고리 네비게이션 */}
           <div className="flex justify-center mb-8">
             <div 
               className="inline-flex rounded-full p-1"
@@ -337,11 +334,34 @@ const HomePage: React.FC = () => {
             </div>
           </div>
 
-          {/* 상품 목록 */}
           {isLoadingProducts ? (
             <div className="py-12">
               <Loading text="상품을 불러오는 중..." />
             </div>
+          ) : selectedCategory === 'gift' ? (
+            mockGiftProducts.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {mockGiftProducts.map((product) => (
+                  <GiftProductCard
+                    key={product.id}
+                    product={product}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div 
+                className="text-center py-16 rounded-lg"
+                style={{ background: 'var(--gray-50)' }}
+              >
+                <div className="text-6xl mb-4">🎁</div>
+                <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--gray-900)' }}>
+                  과일선물 상품을 준비 중입니다
+                </h3>
+                <p style={{ color: 'var(--gray-600)' }}>
+                  곧 맛있는 선물용 상품들을 준비해드릴게요!
+                </p>
+              </div>
+            )
           ) : availableUiProducts.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {availableUiProducts.map((product) => (
@@ -361,7 +381,7 @@ const HomePage: React.FC = () => {
             >
               <div className="text-6xl mb-4">🛒</div>
               <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--gray-900)' }}>
-                {selectedCategory === 'today' ? '오늘의 과일' : '과일선물'} 상품이 없습니다
+                오늘의 과일 상품이 없습니다
               </h3>
               <p className="mb-6" style={{ color: 'var(--gray-600)' }}>
                 곧 신선한 상품들을 준비해드릴게요!
@@ -378,7 +398,6 @@ const HomePage: React.FC = () => {
           )}
         </div>
 
-        {/* 매장 안내 */}
         <div 
           className="mt-8 p-6 rounded-lg"
           style={{ 
