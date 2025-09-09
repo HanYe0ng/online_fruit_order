@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card } from '../../components/common'
 import { Cart, OrderForm } from '../../components/customer'
 import { useCartStore } from '../../stores/cartStore'
 import { ROUTES } from '../../utils/constants'
+import { updatePageTitle, updatePageDescription, PAGE_TITLES, PAGE_DESCRIPTIONS } from '../../utils/pageTitle'
 
 const CartPage: React.FC = () => {
   const [isOrderFormOpen, setIsOrderFormOpen] = useState(false)
@@ -15,6 +16,12 @@ const CartPage: React.FC = () => {
     setIsOrderFormOpen(false)
     navigate(ROUTES.ORDER_COMPLETE)
   }
+
+  // 페이지 제목 설정
+  useEffect(() => {
+    updatePageTitle(PAGE_TITLES.CART)
+    updatePageDescription(PAGE_DESCRIPTIONS.CART)
+  }, [])
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--gray-50)' }}>

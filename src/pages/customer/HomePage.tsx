@@ -7,6 +7,7 @@ import { useCartStore } from '../../stores/cartStore'
 import { ROUTES } from '../../utils/constants'
 import { supabase } from '../../services/supabase'
 import { mockGiftProducts } from '../../data/mockData'
+import { updatePageTitle, updatePageDescription, PAGE_TITLES, PAGE_DESCRIPTIONS } from '../../utils/pageTitle'
 import type { Product as UiProduct } from '../../types/product'
 
 type Store = {
@@ -169,6 +170,12 @@ const HomePage: React.FC = () => {
 
   const currentStoreName =
     stores.find((s) => s.id === selectedStoreId)?.name ?? '점포 선택'
+
+  // 페이지 제목 설정
+  useEffect(() => {
+    updatePageTitle(PAGE_TITLES.HOME)
+    updatePageDescription(PAGE_DESCRIPTIONS.HOME)
+  }, [])
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--gray-50)' }}>

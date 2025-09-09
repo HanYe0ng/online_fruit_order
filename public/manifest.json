@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "달콤네",
+  "name": "달콤네 - 신선한 과일 온라인 주문",
+  "description": "신선하고 달콤한 과일을 온라인으로 주문하세요. 당일배송, 신선보장!",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +21,8 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#ff6b35",
+  "background_color": "#fff5f0",
+  "categories": ["food", "shopping"],
+  "lang": "ko"
 }
