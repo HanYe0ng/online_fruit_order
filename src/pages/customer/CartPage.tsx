@@ -117,11 +117,13 @@ const CartPage: React.FC = () => {
               <p className="text-sm sm:text-base mb-4 sm:mb-6" style={{ color: 'var(--gray-600)' }}>
                 신선한 과일을 담아보세요!
               </p>
-              <Link to={ROUTES.HOME}>
-                <button className="dalkomne-button-primary px-6 sm:px-8 py-3 text-sm sm:text-base">
-                  🍎 쇼핑 계속하기
-                </button>
-              </Link>
+              <div className="flex justify-center">
+                <Link to={ROUTES.HOME}>
+                  <button className="dalkomne-button-primary px-6 sm:px-8 py-3 text-sm sm:text-base">
+                    🍎 쇼핑 계속하기
+                  </button>
+                </Link>
+              </div>
             </div>
           ) : (
             /* 장바구니 아이템들 */
