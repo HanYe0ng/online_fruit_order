@@ -4,17 +4,17 @@
   "description": "신선하고 달콤한 과일을 온라인으로 주문하세요. 당일배송, 신선보장!",
   "icons": [
     {
-      "src": "favicon.ico",
+      "src": "logo2.png",
       "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "type": "image/png"
     },
     {
-      "src": "logo192.png",
+      "src": "logo2.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "logo512.png",
+      "src": "logo2.png",
       "type": "image/png",
       "sizes": "512x512"
     }
