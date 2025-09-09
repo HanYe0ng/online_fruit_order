@@ -39,7 +39,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   return (
     <div className="dalkomne-product-card h-full flex flex-col">
       {/* 상품 이미지 */}
-      <div className="w-full h-48 bg-gray-50 overflow-hidden flex-shrink-0 relative">
+      <div className="w-full h-40 sm:h-48 bg-gray-50 overflow-hidden flex-shrink-0 relative">
         {product.image_url ? (
           <>
             <img
@@ -51,19 +51,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
             />
             <div className="hidden w-full h-full flex items-center justify-center absolute inset-0"
                  style={{ background: 'var(--gray-50)', color: 'var(--gray-400)' }}>
-              <span className="text-4xl">🍎</span>
+              <span className="text-3xl sm:text-4xl">🍎</span>
             </div>
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center" 
                style={{ color: 'var(--gray-400)' }}>
-            <span className="text-4xl">🍎</span>
+            <span className="text-3xl sm:text-4xl">🍎</span>
           </div>
         )}
 
         {/* 카테고리 배지 */}
         <div 
-          className="absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium"
+          className="absolute top-2 sm:top-3 right-2 sm:right-3 px-2 py-1 rounded-full text-xs font-medium"
           style={{
             background: (product.category || 'today') === 'gift' ? 'var(--dalkomne-orange)' : 'var(--dalkomne-peach)',
             color: 'var(--white)'
@@ -86,23 +86,36 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
       </div>
 
       {/* 상품 정보 */}
-      <div className="flex-grow flex flex-col justify-between p-4">
-        <div className="space-y-2 mb-4">
+      <div className="flex-grow flex flex-col justify-between p-3 sm:p-4">
+        <div className="space-y-1 sm:space-y-2 mb-3 sm:mb-4">
+          {/* 상품명 - 모바일에서 텍스트 오버플로우 방지 */}
           <h3 
-            className="font-semibold line-clamp-2" 
-            style={{ color: 'var(--gray-900)' }}
+            className="font-semibold text-sm sm:text-base leading-tight"
+            style={{ 
+              color: 'var(--gray-900)',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'keep-all',
+              lineHeight: '1.3'
+            }}
             title={product.name}
           >
             {product.name}
           </h3>
+          
+          {/* 가격 */}
           <p 
-            className="text-lg font-bold"
+            className="text-base sm:text-lg font-bold"
             style={{ color: 'var(--dalkomne-orange)' }}
           >
             {product.price.toLocaleString()}원
           </p>
+          
+          {/* 재고 정보 */}
           <p 
-            className="text-sm"
+            className="text-xs sm:text-sm"
             style={{ color: 'var(--gray-600)' }}
           >
             재고: {product.quantity}개
@@ -114,7 +127,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           {product.is_soldout ? (
             <button 
               disabled 
-              className="w-full py-3 rounded-lg font-semibold text-sm"
+              className="w-full py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm"
               style={{ 
                 background: 'var(--gray-200)', 
                 color: 'var(--gray-500)'
@@ -125,7 +138,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           ) : product.quantity === 0 ? (
             <button 
               disabled 
-              className="w-full py-3 rounded-lg font-semibold text-sm"
+              className="w-full py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm"
               style={{ 
                 background: 'var(--gray-200)', 
                 color: 'var(--gray-500)'
@@ -136,7 +149,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           ) : (
             <button 
               onClick={handleAddToCart} 
-              className="dalkomne-button-primary w-full py-3 text-sm"
+              className="dalkomne-button-primary w-full py-2 sm:py-3 text-xs sm:text-sm font-semibold"
             >
               🛒 장바구니 담기
             </button>
