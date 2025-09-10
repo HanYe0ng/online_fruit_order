@@ -1,0 +1,121 @@
+export interface CompressionOptions {
+  maxWidth?: number;
+  maxHeight?: number;
+  quality?: number;
+  maxSizeMB?: number;
+}
+
+export interface CompressionResult {
+  file: Blob;
+  originalSize: number;
+  compressedSize: number;
+  compressionRatio: number;
+}
+
+/**
+ * 이미지 파일을 압축합니다
+ */
+export const compressImage = (
+  file: File, 
+  options: CompressionOptions = {}
+): Promise<CompressionResult> => {
+  const {
+    maxWidth = 800,     // 최대 가로 크기
+    maxHeight = 600,    // 최대 세로 크기
+    quality = 0.8,      // 압축 품질 (0.1 ~ 1.0)
+    maxSizeMB = 1       // 최대 파일 크기 (MB)
+  } = options;
+
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    if (!ctx) {
+      reject(new Error('Canvas context를 생성할 수 없습니다.'));
+      return;
+    }
+    
+    img.onload = () => {
+      try {
+        // 비율 유지하면서 크기 조정
+        const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+        const newWidth = img.width * ratio;
+        const newHeight = img.height * ratio;
+        
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        
+        // 이미지 그리기
+        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+        
+        // Blob으로 변환하면서 압축
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const sizeMB = blob.size / (1024 * 1024);
+            
+            // 목표 크기보다 크면 품질 줄여서 재압축
+            if (sizeMB > maxSizeMB && quality > 0.1) {
+              compressImage(file, { ...options, quality: quality - 0.1 })
+                .then(resolve)
+                .catch(reject);
+            } else {
+              resolve({
+                file: blob,
+                originalSize: file.size,
+                compressedSize: blob.size,
+                compressionRatio: Math.round((1 - blob.size / file.size) * 100)
+              });
+            }
+          } else {
+            reject(new Error('이미지 압축에 실패했습니다.'));
+          }
+        }, 'image/jpeg', quality);
+        
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    img.onerror = () => reject(new Error('이미지 로드에 실패했습니다.'));
+    
+    // 메모리 해제를 위한 URL 생성
+    const imageUrl = URL.createObjectURL(file);
+    img.src = imageUrl;
+    
+    // 이미지 로드 후 URL 해제
+    img.onload = () => {
+      URL.revokeObjectURL(imageUrl);
+      img.onload(); // 원래 onload 실행
+    };
+  });
+};
+
+/**
+ * 파일 크기 및 형식을 검증합니다
+ */
+export const validateImageFile = (file: File): void => {
+  const maxSize = 20 * 1024 * 1024; // 20MB
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('JPG, PNG, WEBP 파일만 업로드 가능합니다.');
+  }
+  
+  if (file.size > maxSize) {
+    throw new Error('파일 크기가 20MB를 초과할 수 없습니다.');
+  }
+};
+
+/**
+ * 파일 크기를 읽기 쉬운 형식으로 변환합니다
+ */
+export const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};

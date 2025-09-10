@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { Button, Input, Modal } from '../common'
 import { ProductFormData, Product } from '../../types/product'
-import { compressImage, validateImageFile } from '../../utils/imageUtils'
+import { compressImage, validateImageFile, formatFileSize, CompressionResult } from '../../utils/imageUtils'
 
 interface ProductFormProps {
   isOpen: boolean
@@ -29,6 +29,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
   })
   const [preview, setPreview] = useState<string | null>(initialData?.image_url || null)
   const [isCompressing, setIsCompressing] = useState(false)
+  const [compressionProgress, setCompressionProgress] = useState(0)
+  const [compressionInfo, setCompressionInfo] = useState<CompressionResult | null>(null)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -45,22 +47,40 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
     setErrors(prev => ({ ...prev, image: '' }))
     setIsCompressing(true)
+    setCompressionProgress(0)
+    setCompressionInfo(null)
 
     try {
       // 이미지 압축
-      const compressedFile = await compressImage(file)
-      setFormData(prev => ({ ...prev, image: compressedFile }))
+      const result = await compressImage(
+        file,
+        {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 800,
+          useWebWorker: true
+        },
+        (progress) => {
+          setCompressionProgress(Math.round(progress))
+        }
+      )
+      
+      setCompressionInfo(result)
+      setFormData(prev => ({ ...prev, image: result.file }))
       
       // 미리보기 생성
       const reader = new FileReader()
       reader.onload = (e) => {
-        setPreview(e.target?.result as string)
+        if (e.target?.result) {
+          setPreview(e.target.result as string)
+        }
       }
-      reader.readAsDataURL(compressedFile)
+      reader.readAsDataURL(result.file)
     } catch (error) {
+      console.error('이미지 처리 오류:', error)
       setErrors(prev => ({ ...prev, image: '이미지 처리 중 오류가 발생했습니다.' }))
     } finally {
       setIsCompressing(false)
+      setCompressionProgress(0)
     }
   }
 
@@ -102,6 +122,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
       image: null
     })
     setPreview(null)
+    setCompressionInfo(null)
+    setCompressionProgress(0)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -128,9 +150,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
           <div className="flex items-center space-x-4">
             <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
               {isCompressing ? (
-                <div className="flex flex-col items-center">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-1"></div>
-                  <span className="text-xs text-gray-500">압축중</span>
+                <div className="flex flex-col items-center space-y-1">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs text-gray-500">{compressionProgress}%</span>
                 </div>
               ) : preview ? (
                 <img src={preview} alt="Preview" className="w-full h-full object-cover" />
@@ -156,8 +178,34 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 {isCompressing ? '이미지 처리중...' : '이미지 선택'}
               </Button>
               <p className="text-xs text-gray-500 mt-1">
-                JPG, PNG, WEBP 파일 (5MB 이하)
+                JPG, PNG, WEBP 파일 (20MB 이하)
               </p>
+              
+              {/* 압축 정보 표시 */}
+              {compressionInfo && (
+                <div className="mt-2 p-2 bg-green-50 rounded-md">
+                  <p className="text-xs text-green-700 font-medium">🎉 이미지 압축 완료</p>
+                  <div className="text-xs text-green-600 mt-1">
+                    <p>원본: {formatFileSize(compressionInfo.originalSize)}</p>
+                    <p>압축후: {formatFileSize(compressionInfo.compressedSize)}</p>
+                    <p>압축률: {compressionInfo.compressionRatio}% 절약</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* 진행률 바 */}
+              {isCompressing && (
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div 
+                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${compressionProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">이미지 압축 중...</p>
+                </div>
+              )}
+              
               {errors.image && (
                 <p className="text-xs text-red-500 mt-1">{errors.image}</p>
               )}
