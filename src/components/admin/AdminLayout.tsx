@@ -67,7 +67,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   {user ? (user.role === 'admin' ? '관리자' : '매장 관리자') : '로그인 필요'}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
+              <Button type="button" variant="outline" size="sm" onClick={handleLogout}>
                 로그아웃
               </Button>
             </div>

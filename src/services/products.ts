@@ -5,7 +5,8 @@ export const productService = {
   // 상품 목록 조회
   async getProducts(filters?: ProductFilters): Promise<{ data: Product[] | null; error: string | null }> {
     try {
-      let query = supabase.from('products').select('*').order('created_at', { ascending: false })
+      // created_at 미보유 테이블 안전 위해 id 기준 정렬
+      let query = supabase.from('products').select('*').order('id', { ascending: false })
 
       if (filters?.search) {
         query = query.ilike('name', `%${filters.search}%`)
@@ -34,61 +35,56 @@ export const productService = {
   // 상품 생성
   async createProduct(productData: ProductFormData, storeId: number): Promise<{ data: Product | null; error: string | null }> {
     try {
-      console.log('상품 생성 시작:', { productData, storeId })
+      if (!storeId) {
+        return { data: null, error: '점포가 선택되지 않았습니다. 다시 로그인하거나 점포를 선택해 주세요.' }
+      }
+
+      const price = Number(productData.price)
+      const quantity = Number(productData.quantity)
+      if (!Number.isFinite(price) || !Number.isFinite(quantity)) {
+        return { data: null, error: '가격/수량이 올바르지 않습니다.' }
+      }
+
       let imageUrl: string | null = null
 
       // 이미지 업로드
       if (productData.image) {
-        console.log('이미지 업로드 시작:', {
-          name: productData.image.name,
-          size: productData.image.size,
-          type: productData.image.type
-        })
-        
-        const fileExt = productData.image.name.split('.').pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+        const fileExt = productData.image.name.split('.').pop() || 'jpg'
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`
         const filePath = `products/${fileName}`
-        
-        console.log('업로드 경로:', filePath)
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('product-images')
-          .upload(filePath, productData.image)
-
-        console.log('업로드 결과:', { uploadData, uploadError })
+          .upload(filePath, productData.image, {
+            contentType: productData.image.type,
+            cacheControl: '3600',
+            upsert: false,
+          })
 
         if (uploadError) {
-          console.error('Supabase Storage 업로드 오류:', uploadError)
           return { data: null, error: `이미지 업로드 실패: ${uploadError.message}` }
         }
 
-        // 공개 URL 생성
-        const { data: { publicUrl } } = supabase.storage
+        const { data: pub } = supabase.storage
           .from('product-images')
           .getPublicUrl(filePath)
-        
-        console.log('생성된 공개 URL:', publicUrl)
-        imageUrl = publicUrl
+
+        imageUrl = pub.publicUrl
       }
 
-      // 상품 데이터 삽입
       const insertData = {
         store_id: storeId,
-        name: productData.name,
-        price: productData.price,
-        quantity: productData.quantity,
-        image_url: imageUrl
+        name: productData.name?.trim(),
+        price,
+        quantity,
+        image_url: imageUrl,
       }
-      
-      console.log('DB 삽입 데이터:', insertData)
 
       const { data, error } = await supabase
         .from('products')
-        .insert([insertData])
+        .insert(insertData)
         .select()
         .single()
-
-      console.log('DB 삽입 결과:', { data, error })
 
       if (error) {
         return { data: null, error: error.message }
@@ -104,31 +100,43 @@ export const productService = {
   // 상품 수정
   async updateProduct(id: number, productData: Partial<ProductFormData>): Promise<{ data: Product | null; error: string | null }> {
     try {
-      let updateData: any = {
-        name: productData.name,
-        price: productData.price,
-        quantity: productData.quantity
+      // 안전한 업데이트 데이터 구성 (undefined 필드 제외)
+      const updateData: Record<string, any> = {}
+      if (productData.name !== undefined) updateData.name = productData.name?.trim()
+      if (productData.price !== undefined) {
+        const price = Number(productData.price)
+        if (!Number.isFinite(price)) return { data: null, error: '가격이 올바르지 않습니다.' }
+        updateData.price = price
+      }
+      if (productData.quantity !== undefined) {
+        const quantity = Number(productData.quantity)
+        if (!Number.isFinite(quantity)) return { data: null, error: '수량이 올바르지 않습니다.' }
+        updateData.quantity = quantity
       }
 
-      // 새 이미지가 있는 경우 업로드
+      // 새 이미지 업로드
       if (productData.image) {
-        const fileExt = productData.image.name.split('.').pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+        const fileExt = productData.image.name.split('.').pop() || 'jpg'
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`
         const filePath = `products/${fileName}`
 
         const { error: uploadError } = await supabase.storage
           .from('product-images')
-          .upload(filePath, productData.image)
+          .upload(filePath, productData.image, {
+            contentType: productData.image.type,
+            cacheControl: '3600',
+            upsert: false,
+          })
 
         if (uploadError) {
-          return { data: null, error: '이미지 업로드에 실패했습니다.' }
+          return { data: null, error: `이미지 업로드 실패: ${uploadError.message}` }
         }
 
-        const { data: { publicUrl } } = supabase.storage
+        const { data: pub } = supabase.storage
           .from('product-images')
           .getPublicUrl(filePath)
 
-        updateData.image_url = publicUrl
+        updateData.image_url = pub.publicUrl
       }
 
       const { data, error } = await supabase
@@ -148,63 +156,44 @@ export const productService = {
     }
   },
 
-  // 상품 삭제 (트랜잭션 사용)
+  // 상품 삭제 (참조 정리 시도)
   async deleteProduct(id: number): Promise<{ error: string | null }> {
     try {
-      console.log('상품 삭제 시작:', id)
-      
-      // 먼저 관련 데이터 확인
+      // 참조 여부 확인
       const { data: relatedOrders, error: checkError } = await supabase
         .from('order_items')
         .select('id, order_id')
         .eq('product_id', id)
-      
+
       if (checkError) {
-        console.error('관련 데이터 확인 실패:', checkError)
         return { error: `관련 데이터 확인 실패: ${checkError.message}` }
       }
-      
-      console.log('참조하는 주문 항목 수:', relatedOrders?.length || 0)
-      
+
       if (relatedOrders && relatedOrders.length > 0) {
-        console.log('관련 주문 항목들:', relatedOrders)
-        
-        // order_items 삭제
         const { error: orderItemsError } = await supabase
           .from('order_items')
           .delete()
           .eq('product_id', id)
-        
+
         if (orderItemsError) {
-          console.error('주문 항목 삭제 실패:', orderItemsError)
           return { error: `관련 주문 항목 삭제 실패: ${orderItemsError.message}` }
         }
-        
-        console.log('관련 주문 항목 삭제 완료')
       }
-      
-      // 상품 삭제 시도
+
       const { error: productError } = await supabase
         .from('products')
         .delete()
         .eq('id', id)
 
       if (productError) {
-        console.error('상품 삭제 실패:', productError)
-        
-        // 구체적인 오류 메시지 로그
-        if (productError.code === '23503') {
+        if ((productError as any).code === '23503') {
           return { error: '아직 이 상품을 참조하는 주문이 있습니다. Supabase 대시보드에서 수동으로 삭제해주세요.' }
         }
-        
         return { error: `상품 삭제 실패: ${productError.message}` }
       }
-      
-      console.log('상품 삭제 완료')
+
       return { error: null }
-      
     } catch (error) {
-      console.error('상품 삭제 중 전체 오류:', error)
       return { error: '상품 삭제 중 오류가 발생했습니다. 수동으로 삭제해주세요.' }
     }
   },
@@ -225,5 +214,5 @@ export const productService = {
     } catch (error) {
       return { error: '상품 상태 변경 중 오류가 발생했습니다.' }
     }
-  }
+  },
 }
