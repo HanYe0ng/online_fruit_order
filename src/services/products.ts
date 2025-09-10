@@ -148,21 +148,64 @@ export const productService = {
     }
   },
 
-  // 상품 삭제
+  // 상품 삭제 (트랜잭션 사용)
   async deleteProduct(id: number): Promise<{ error: string | null }> {
     try {
-      const { error } = await supabase
+      console.log('상품 삭제 시작:', id)
+      
+      // 먼저 관련 데이터 확인
+      const { data: relatedOrders, error: checkError } = await supabase
+        .from('order_items')
+        .select('id, order_id')
+        .eq('product_id', id)
+      
+      if (checkError) {
+        console.error('관련 데이터 확인 실패:', checkError)
+        return { error: `관련 데이터 확인 실패: ${checkError.message}` }
+      }
+      
+      console.log('참조하는 주문 항목 수:', relatedOrders?.length || 0)
+      
+      if (relatedOrders && relatedOrders.length > 0) {
+        console.log('관련 주문 항목들:', relatedOrders)
+        
+        // order_items 삭제
+        const { error: orderItemsError } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('product_id', id)
+        
+        if (orderItemsError) {
+          console.error('주문 항목 삭제 실패:', orderItemsError)
+          return { error: `관련 주문 항목 삭제 실패: ${orderItemsError.message}` }
+        }
+        
+        console.log('관련 주문 항목 삭제 완료')
+      }
+      
+      // 상품 삭제 시도
+      const { error: productError } = await supabase
         .from('products')
         .delete()
         .eq('id', id)
 
-      if (error) {
-        return { error: error.message }
+      if (productError) {
+        console.error('상품 삭제 실패:', productError)
+        
+        // 구체적인 오류 메시지 로그
+        if (productError.code === '23503') {
+          return { error: '아직 이 상품을 참조하는 주문이 있습니다. Supabase 대시보드에서 수동으로 삭제해주세요.' }
+        }
+        
+        return { error: `상품 삭제 실패: ${productError.message}` }
       }
-
+      
+      console.log('상품 삭제 완료')
       return { error: null }
+      
     } catch (error) {
-      return { error: '상품 삭제 중 오류가 발생했습니다.' }
+      console.error('상품 삭제 중 전체 오류:', error)
+      return { error: '상품 삭제 중 오류가 발생했습니다. 수동으로 삭제해주세요.' }
     }
   },
 
