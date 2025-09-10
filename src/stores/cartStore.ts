@@ -120,35 +120,22 @@ export const useCartStore = create<CartStore>()(
       },
 
       updateQuantity: (productId: number, quantity: number) => {
-        if (quantity <= 0) {
-          get().removeItem(productId)
-          return
-        }
-
+        // 수량이 1보다 작아지지 않도록 제한
+        const finalQuantity = Math.max(1, quantity)
+        
         set({
           items: get().items.map(item =>
             item.product.id === productId
-              ? { ...item, quantity }
+              ? { ...item, quantity: finalQuantity }
               : item
           )
         })
       },
 
       updateGiftQuantity: (productId: number, quantity: number) => {
-        if (quantity <= 0) {
-          // 수량이 0 이하가 되면 첫 번째 해당 상품을 제거
-          const giftItems = get().giftItems
-          const itemIndex = giftItems.findIndex(item => item.product.id === productId)
-          if (itemIndex >= 0) {
-            const newGiftItems = giftItems.filter((_, index) => index !== itemIndex)
-            set({
-              giftItems: newGiftItems,
-              selectedStoreId: (get().items.length > 0 || newGiftItems.length > 0) ? get().selectedStoreId : null
-            })
-          }
-          return
-        }
-
+        // 수량이 1보다 작아지지 않도록 제한
+        const finalQuantity = Math.max(1, quantity)
+        
         // 첫 번째 해당 상품의 수량 업데이트
         const giftItems = get().giftItems
         const itemIndex = giftItems.findIndex(item => item.product.id === productId)
@@ -156,7 +143,7 @@ export const useCartStore = create<CartStore>()(
           const updatedGiftItems = [...giftItems]
           updatedGiftItems[itemIndex] = {
             ...updatedGiftItems[itemIndex],
-            quantity
+            quantity: finalQuantity
           }
           set({ giftItems: updatedGiftItems })
         }

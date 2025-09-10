@@ -302,7 +302,10 @@ const HomePage: React.FC = () => {
                   color: 'var(--white)' 
                 }}
               >
-                {selectedCategory === 'gift' ? mockGiftProducts.length : availableUiProducts.length}개 상품
+                {selectedCategory === 'gift' 
+                  ? mockGiftProducts.filter(product => product.store_id === selectedStoreId).length
+                  : availableUiProducts.length
+                }개 상품
               </span>
             </div>
           </div>
@@ -346,14 +349,18 @@ const HomePage: React.FC = () => {
               <Loading text="상품을 불러오는 중..." />
             </div>
           ) : selectedCategory === 'gift' ? (
-            mockGiftProducts.length > 0 ? (
+            // 선택된 점포의 선물용 상품 필터링
+            mockGiftProducts.filter(product => product.store_id === selectedStoreId).length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {mockGiftProducts.map((product) => (
-                  <GiftProductCard
-                    key={product.id}
-                    product={product}
-                  />
-                ))}
+                {mockGiftProducts
+                  .filter(product => product.store_id === selectedStoreId)
+                  .map((product) => (
+                    <GiftProductCard
+                      key={product.id}
+                      product={product}
+                    />
+                  ))
+                }
               </div>
             ) : (
               <div 
@@ -415,29 +422,36 @@ const HomePage: React.FC = () => {
           <div className="flex items-start space-x-4">
             <div className="text-3xl">📢</div>
             <div>
-              <h3 className="text-lg font-bold mb-3">🍎 달콤네 주문 안내</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <h3 className="text-lg font-bold mb-3">1. 오늘의 과일 배달 주문</h3>
+              <div className="space-y-2 text-sm">
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
-                    <span>✅</span>
-                    <span>매일 새벽 배송되는 신선한 과일</span>
+                    <span>배달주문은 매주 월~금요일 운영되고 있습니다.(공휴일 제외)</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span>🚚</span>
-                    <span>아파트 단지 내 무료 배달</span>
+                    <span>배달주문은 최소 2만원 이상 결제시 배달이 가능합니다.</span>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
-                    <span>⏰</span>
-                    <span>주문 후 1-2시간 내 배달 완료</span>
+                    <span>주문마감은 오후 4시 입니다.</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span>💳</span>
-                    <span>현금 또는 계좌이체 결제</span>
+                    <span>배달은 주문마감 후 당일 오후 5시부터 순차적으로 진행됩니다.</span>
                   </div>
                 </div>
               </div>
+              <div className='mt-6'></div>
+              <h3 className='text-lg font-bold mb-3'>2. 명절선물 과일기프트</h3>
+              <div className="space-y-2 text-sm">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span>상품과 옵션에 따라 예약, 픽업, 택배배송, 당일배달 사항을 정확히 확인하여 주문해 주세요.</span>
+                  </div>
+                </div>
+              </div>
+              <div className='mt-6'></div>
+              <h3 className='text-lg font-bold mb-3'>3. 공동현관번호로 출입이 가능한 아파트인 경우 번호를 기재해주셔야 원활한 배달이 가능합니다.</h3>
             </div>
           </div>
         </div>

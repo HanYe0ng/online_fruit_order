@@ -24,7 +24,7 @@ export const mockStores: StoreInfo[] = [
 export const mockGiftProducts: GiftProduct[] = [
   {
     id: 999,
-    store_id: 1,
+    store_id: 1, // 실제 DB의 첫 번째 점포 ID에 대응 (동적으로 대체 가능)
     name: "달콤네 추천 실속세트 9과",
     price: 53000,
     originalPrice: 59000,

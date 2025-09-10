@@ -1,18 +1,47 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Input, Loading } from '../../components/common'
 import { ProductCard } from '../../components/customer'
 import { useProducts } from '../../hooks/useProducts'
 import { useCartStore } from '../../stores/cartStore'
+import { fetchStores } from '../../services/stores'
 import { ROUTES } from '../../utils/constants'
+import type { StoreInfo } from '../../types/product'
 
 const ProductPage: React.FC = () => {
-  const [selectedStoreId, setSelectedStoreId] = useState<number>(1)
+  const [stores, setStores] = useState<StoreInfo[]>([])
+  const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [showSoldOut, setShowSoldOut] = useState(false)
+  const [isLoadingStores, setIsLoadingStores] = useState(true)
   
-  const { data: productsResponse, isLoading } = useProducts({ store_id: selectedStoreId })
+  const { data: productsResponse, isLoading: isLoadingProducts } = useProducts({ 
+    store_id: selectedStoreId || 0 
+  })
   const { getTotalItems } = useCartStore()
+
+  // 점포 데이터 불러오기
+  useEffect(() => {
+    const loadStores = async () => {
+      try {
+        setIsLoadingStores(true)
+        const storesData = await fetchStores()
+        setStores(storesData)
+        
+        // 첫 번째 점포를 기본으로 선택
+        if (storesData.length > 0 && !selectedStoreId) {
+          setSelectedStoreId(storesData[0].id)
+        }
+      } catch (error) {
+        console.error('점포 정보를 불러오는 중 오류 발생:', error)
+        setStores([])
+      } finally {
+        setIsLoadingStores(false)
+      }
+    }
+    
+    loadStores()
+  }, [])
 
   const products = productsResponse?.data || []
   
@@ -64,18 +93,24 @@ const ProductPage: React.FC = () => {
             {/* 점포 선택 */}
             <div>
               <h3 className="font-medium text-gray-900 mb-2">점포 선택</h3>
-              <div className="flex space-x-2">
-                {[1, 2, 3].map(storeId => (
-                  <Button
-                    key={storeId}
-                    variant={selectedStoreId === storeId ? "primary" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedStoreId(storeId)}
-                  >
-                    {storeId === 1 ? '신사점' : storeId === 2 ? '홍대점' : '강남점'}
-                  </Button>
-                ))}
-              </div>
+              {isLoadingStores ? (
+                <div className="text-sm text-gray-500">점포 데이터를 불러오는 중...</div>
+              ) : stores.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {stores.map(store => (
+                    <Button
+                      key={store.id}
+                      variant={selectedStoreId === store.id ? "primary" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedStoreId(store.id)}
+                    >
+                      {store.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">등록된 점포가 없습니다.</div>
+              )}
             </div>
 
             {/* 검색 */}
@@ -103,7 +138,13 @@ const ProductPage: React.FC = () => {
         </Card>
 
         {/* 상품 목록 */}
-        {isLoading ? (
+        {isLoadingStores ? (
+          <Loading text="점포 정보를 불러오는 중..." />
+        ) : !selectedStoreId ? (
+          <Card className="text-center py-12">
+            <p className="text-gray-500">점포를 선택해주세요.</p>
+          </Card>
+        ) : isLoadingProducts ? (
           <Loading text="상품을 불러오는 중..." />
         ) : (
           <>

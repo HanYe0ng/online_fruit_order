@@ -354,9 +354,9 @@ const Cart: React.FC<CartProps> = ({ onCheckout }) => {
             📋 주문 안내
           </h4>
           <div className="text-xs sm:text-sm space-y-1" style={{ color: 'var(--gray-700)' }}>
-            <p>• 배달 시 현금 또는 계좌이체로 결제</p>
-            <p>• 배달 예상 시간: 1-2시간</p>
-            <p>• 신선한 과일을 당일 배송해드립니다</p>
+            <p>• 주문전 상품과 수량을 확인후 결제해 주세요</p>
+            <p>• 결제는 계좌이체로만 가능하며 결제 완료시 배달접수가 가능합니다.</p>
+            <p>• 결제시  받는 통장의 표시를 주문자의 성함과 같게 해야 확인이 가능합니다.</p>
             {giftItems.length > 0 && (
               <p>• 선물용 상품은 선택하신 배송 방법에 따라 배송됩니다</p>
             )}

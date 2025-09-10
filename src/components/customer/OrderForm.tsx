@@ -12,13 +12,17 @@ interface OrderFormProps {
   onSuccess: () => void
 }
 
+// 로컬 폼 타입에 memo 추가
+type OrderFormWithMemo = OrderFormData & { memo: string }
+
 const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => {
-  const [formData, setFormData] = useState<OrderFormData>({
+  const [formData, setFormData] = useState<OrderFormWithMemo>({
     customer_name: '',
     customer_phone: '',
     apartment_name: '',
     dong: '',
-    ho: ''
+    ho: '',
+    memo: '' // 추가
   })
   const [selectedApartmentId, setSelectedApartmentId] = useState<number | null>(null)
   const [apartmentQuery, setApartmentQuery] = useState('')
@@ -72,10 +76,10 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
   }
 
   // 입력 필드 변경 시 에러 제거
-  const handleInputChange = (field: keyof OrderFormData, value: string) => {
+  const handleInputChange = (field: keyof OrderFormWithMemo, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }))
+    if (errors[field as keyof OrderFormData]) {
+      setErrors(prev => ({ ...prev, [field as keyof OrderFormData]: undefined }))
     }
   }
 
@@ -111,12 +115,13 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
         return
       }
 
-      // 주문 데이터 생성
-      const orderData = {
+      // 주문 데이터 생성 (memo 포함)
+      const orderData: any = {
         store_id: selectedStoreId,
         apartment_unit_id: apartmentUnit.id,
         customer_name: formData.customer_name,
         customer_phone: formData.customer_phone,
+        memo: formData.memo, // ✅ 메모 전달 (백엔드에 memo 컬럼 존재 시 저장)
         items: items.map(item => ({
           product_id: item.product.id,
           quantity: item.quantity,
@@ -127,7 +132,6 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
       const result = await createOrder.mutateAsync(orderData)
 
       if (result.error) {
-        // 에러 유형에 따른 다른 메시지 제공
         if (result.error.includes('재고가 부족')) {
           toast.error('재고 부족', result.error)
         } else if (result.error.includes('품절')) {
@@ -138,6 +142,21 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
           toast.error('주문 처리 실패', result.error)
         }
       } else {
+        // 주문 완료 정보를 임시 저장 (memo 포함)
+        const orderCompleteData = {
+          totalAmount: getTotalPrice(),
+          items: items.map(item => ({
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.product.price
+          })),
+          customerName: formData.customer_name,
+          memo: formData.memo, // ✅
+          orderId: result.data?.id || Date.now(),
+          timestamp: new Date().toISOString()
+        }
+        localStorage.setItem('orderCompleteData', JSON.stringify(orderCompleteData))
+        
         toast.success('주문 완료!', '주문이 성공적으로 접수되었습니다.', {
           duration: 3000
         })
@@ -157,7 +176,8 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
       customer_phone: '',
       apartment_name: '',
       dong: '',
-      ho: ''
+      ho: '',
+      memo: '' // ✅ 리셋
     })
     setSelectedApartmentId(null)
     setApartmentQuery('')
@@ -172,7 +192,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="주문 정보 입력" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {/* 고객 정보 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
@@ -252,6 +272,21 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
             placeholder="예: 1001"
             error={errors.ho}
             required
+          />
+        </div>
+
+        {/* 메모 (공동현관 비밀번호/요청사항) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            메모 (공동현관 비밀번호/요청사항)
+          </label>
+          <textarea
+            value={formData.memo}
+            onChange={(e) => handleInputChange('memo', e.target.value)}
+            placeholder="예: 공동현관 1234#, 경비실 앞에 두세요 / 초인종 누르지 말아주세요 등"
+            rows={3}
+            maxLength={300}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
