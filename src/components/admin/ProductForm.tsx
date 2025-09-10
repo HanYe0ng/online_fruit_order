@@ -22,9 +22,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
   title = '상품 등록'
 }) => {
   const [formData, setFormData] = useState<ProductFormData>({
-    name: initialData?.name || '샤과',
-    price: initialData?.price || 5000,
-    quantity: initialData?.quantity || 10,
+    name: initialData?.name || '',
+    price: initialData?.price || 0,
+    quantity: initialData?.quantity || 0,
     category: initialData?.category || 'today',
     image: null
   })
