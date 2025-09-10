@@ -20,23 +20,40 @@ export const compressImage = async (
   onProgress?: (progress: number) => void
 ): Promise<CompressionResult> => {
   const {
-    maxSizeMB = 1, // 최대 1MB
-    maxWidthOrHeight = 800, // 최대 800px
+    maxSizeMB = 0.3, // 기본 300KB로 낮춤
+    maxWidthOrHeight = 500, // 기본 500px로 낮춤
     useWebWorker = true
   } = options
 
   try {
     onProgress?.(10) // 시작
     
-    const compressedFile = await imageCompression(file, {
+    // browser-image-compression 옵션
+    const compressionOptions = {
       maxSizeMB,
       maxWidthOrHeight,
       useWebWorker,
-      onProgress: (progress) => {
+      onProgress: (progress: number) => {
         // browser-image-compression의 진행률을 10-90% 범위로 매핑
         onProgress?.(10 + (progress * 80))
       }
-    })
+    }
+    
+    let compressedFile = await imageCompression(file, compressionOptions)
+    
+    // 만약 압축이 충분하지 않으면 더 강한 옵션 사용
+    if (compressedFile.size > maxSizeMB * 1024 * 1024) {
+      console.log('초기 압축 부족, 더 강한 압축 시도...')
+      
+      compressedFile = await imageCompression(file, {
+        maxSizeMB: maxSizeMB * 0.7, // 70%로 더 작게
+        maxWidthOrHeight: maxWidthOrHeight * 0.8, // 80%로 더 작게
+        useWebWorker,
+        onProgress: (progress: number) => {
+          onProgress?.(10 + (progress * 80))
+        }
+      })
+    }
     
     onProgress?.(100) // 완료
     

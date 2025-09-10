@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Button, Input, Modal } from '../common'
 import { ProductFormData, Product } from '../../types/product'
 import { compressImage, validateImageFile, formatFileSize, CompressionResult } from '../../utils/imageUtils'
+import { quickConnectionTest } from '../../utils/quickTest'
 
 interface ProductFormProps {
   isOpen: boolean
@@ -34,6 +35,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Supabase 설정 체크 (개발 중에만)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      quickConnectionTest()
+    }
+  }, [])
+
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -51,12 +59,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
     setCompressionInfo(null)
 
     try {
-      // 이미지 압축
+      // 이미지 압축 (더 강한 옵션)
       const result = await compressImage(
         file,
         {
-          maxSizeMB: 1,
-          maxWidthOrHeight: 800,
+          maxSizeMB: 0.3,           // 300KB로 더 작게
+          maxWidthOrHeight: 500,    // 500px로 더 작게  
           useWebWorker: true
         },
         (progress) => {
@@ -77,7 +85,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
       reader.readAsDataURL(result.file)
     } catch (error) {
       console.error('이미지 처리 오류:', error)
-      setErrors(prev => ({ ...prev, image: '이미지 처리 중 오류가 발생했습니다.' }))
+      let errorMessage = '이미지 처리 중 오류가 발생했습니다.'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      
+      setErrors(prev => ({ ...prev, image: errorMessage }))
     } finally {
       setIsCompressing(false)
       setCompressionProgress(0)
