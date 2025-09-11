@@ -1,6 +1,6 @@
 // /components/admin/AdminLayout.tsx
 import React from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '../common'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTES } from '../../utils/constants'
@@ -12,10 +12,15 @@ interface AdminLayoutProps {
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
 
   const handleLogout = async () => {
     if (window.confirm('로그아웃 하시겠습니까?')) {
-      await logout()
+      const { error } = await logout()
+      if (!error) {
+        // 로그아웃 성공 시 로그인 페이지로 리다이렉트
+        navigate(ROUTES.ADMIN_LOGIN, { replace: true })
+      }
     }
   }
 

@@ -5,6 +5,10 @@ export interface Product {
   price: number
   quantity: number
   image_url: string | null
+  // 인앱브라우저용 Base64 이미지 필드 추가
+  image_base64?: string | null
+  image_mime_type?: string | null
+  image_original_name?: string | null
   is_soldout: boolean
   category?: 'today' | 'gift' // 옵셔널로 변경 (하위 호환성)
   created_at: string

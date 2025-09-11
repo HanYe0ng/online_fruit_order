@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button, Card } from '../../components/common'
 import { ROUTES } from '../../utils/constants'
 import { useToast } from '../../hooks/useToast'
+import { detectInAppBrowser } from '../../utils/browserDetection'
 
 interface OrderCompleteData {
   totalAmount: number
@@ -19,6 +20,7 @@ interface OrderCompleteData {
 const OrderCompletePage: React.FC = () => {
   const [logoError, setLogoError] = useState(false)
   const [orderData, setOrderData] = useState<OrderCompleteData | null>(null)
+  const [browserInfo, setBrowserInfo] = useState(detectInAppBrowser())
   const toast = useToast()
 
   // 계좌 정보
@@ -28,6 +30,8 @@ const OrderCompletePage: React.FC = () => {
   }
 
   useEffect(() => {
+    setBrowserInfo(detectInAppBrowser())
+    
     // 주문 완료 데이터 불러오기
     const savedData = localStorage.getItem('orderCompleteData')
     if (savedData) {
@@ -42,24 +46,45 @@ const OrderCompletePage: React.FC = () => {
     }
   }, [])
 
-  // 계좌번호 복사
+  // 계좌번호 복사 (인앱브라우저 호환성 개선)
   const copyAccountNumber = async () => {
     try {
-      await navigator.clipboard.writeText(bankInfo.accountNumber)
-      toast.success('복사 완료!', '계좌번호가 클립보드에 복사되었습니다.', {
-        duration: 2000
-      })
+      // 클립보드 API 지원 여부 확인
+      if (browserInfo.hasClipboardSupport) {
+        await navigator.clipboard.writeText(bankInfo.accountNumber)
+        toast.success('복사 완료!', '계좌번호가 클립보드에 복사되었습니다.', {
+          duration: 2000
+        })
+      } else {
+        // 폴백: 텍스트 선택 방식
+        const textArea = document.createElement('textarea')
+        textArea.value = bankInfo.accountNumber
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        textArea.style.top = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        
+        try {
+          document.execCommand('copy')
+          toast.success('복사 완료!', '계좌번호가 복사되었습니다.', {
+            duration: 2000
+          })
+        } catch (err) {
+          // 복사 실패 시 계좌번호 표시
+          toast.info('계좌번호', bankInfo.accountNumber, {
+            duration: 5000
+          })
+        } finally {
+          document.body.removeChild(textArea)
+        }
+      }
     } catch (error) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea')
-      textArea.value = bankInfo.accountNumber
-      document.body.appendChild(textArea)
-      textArea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textArea)
-      toast.success('복사 완료!', '계좌번호가 복사되었습니다.', {
-        duration: 2000
-      })
+      console.error('복사 실패:', error)
+      
+      // 최종 폴백: 알림으로 계좌번호 표시
+      alert(`계좌번호: ${bankInfo.accountNumber}\n\n수동으로 복사해주세요.`)
     }
   }
 
@@ -104,6 +129,19 @@ const OrderCompletePage: React.FC = () => {
 
       <main className="flex items-center justify-center min-h-[calc(100vh-80px)] p-4">
         <div className="max-w-lg w-full space-y-6">
+          {/* 인앱브라우저 안내 (필요시) */}
+          {browserInfo.isInApp && (
+            <div className="dalkomne-card p-4">
+              <div className="flex items-center space-x-2 text-sm">
+                <span>💡</span>
+                <span style={{ color: 'var(--gray-700)' }}>
+                  {browserInfo.browser} 앱에서 접속 중입니다. 
+                  일부 기능이 제한될 수 있어요.
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="dalkomne-card text-center py-8 px-6">
             {/* 성공 아이콘 */}
             <div 
@@ -211,36 +249,35 @@ const OrderCompletePage: React.FC = () => {
                 <span>•</span>
                 <span>계좌이체 시 입금자명을 주문자명으로 기재해주세요.</span>
               </div>
+              <div className="flex items-center space-x-2">
+                <span>•</span>
+                <span>문의사항이 있으시면 고객센터로 연락 주세요.</span>
+              </div>
             </div>
           </div>
 
-          {/* 액션 버튼 */}
+          {/* 액션 버튼 - '다른 상품 더보기' 버튼 제거 */}
           <div className="space-y-3">
             <Link to={ROUTES.HOME} className="block">
               <button className="dalkomne-button-primary w-full py-3">
                 🏠 홈으로 돌아가기
               </button>
             </Link>
-            <Link to={ROUTES.PRODUCTS} className="block">
-              <button 
-                className="w-full py-3 rounded-lg font-semibold border-2 transition-all duration-300"
-                style={{
-                  borderColor: 'var(--dalkomne-orange)',
-                  color: 'var(--dalkomne-orange)',
-                  background: 'transparent'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--dalkomne-orange)'
-                  e.currentTarget.style.color = 'var(--white)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = 'var(--dalkomne-orange)'
+            
+            {/* 주문 확인용 추가 정보 */}
+            {orderData && (
+              <div 
+                className="w-full p-3 rounded-lg text-center text-sm"
+                style={{ 
+                  background: 'var(--dalkomne-cream)',
+                  border: '1px solid var(--dalkomne-orange-light)'
                 }}
               >
-                🛍 다른 상품 더 보기
-              </button>
-            </Link>
+                <span style={{ color: 'var(--gray-700)' }}>
+                  주문번호: <strong style={{ color: 'var(--dalkomne-orange)' }}>{orderData.orderId}</strong>
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </main>
