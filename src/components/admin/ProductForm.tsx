@@ -27,13 +27,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
   title = '상품 등록'
 }) => {
   const [formData, setFormData] = useState<ProductFormData>({
-    name: initialData?.name || '',
-    price: initialData?.price || 0,
-    quantity: initialData?.quantity || 0,
-    category: initialData?.category || 'today',
+    name: '',
+    price: 0,
+    quantity: 0,
+    category: 'today',
     image: null
   })
-  const [preview, setPreview] = useState<string | null>(initialData?.image_url || null)
+  const [preview, setPreview] = useState<string | null>(null)
   const [isCompressing, setIsCompressing] = useState(false)
   const [compressionProgress, setCompressionProgress] = useState(0)
   const [compressionInfo, setCompressionInfo] = useState<CompressionResult | null>(null)
@@ -53,6 +53,58 @@ const ProductForm: React.FC<ProductFormProps> = ({
       quickConnectionTest()
     }
   }, [browserInfo.browser, browserInfo.needsSpecialHandling, browserInfo.isInApp])
+
+  // 모달이 열릴 때마다 폼 데이터 초기화
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🔄 모달 열림 감지 - 폼 초기화 시작', {
+        hasInitialData: !!initialData,
+        initialData: initialData ? {
+          name: initialData.name,
+          price: initialData.price,
+          quantity: initialData.quantity,
+          category: initialData.category
+        } : null
+      })
+      
+      if (initialData) {
+        // 수정 모드: 기존 데이터로 초기화
+        setFormData({
+          name: initialData.name,
+          price: initialData.price,
+          quantity: initialData.quantity,
+          category: initialData.category || 'today',
+          image: null // 기존 이미지는 새로 업로드하도록 함
+        })
+        setPreview(initialData.image_url || null)
+        console.log('✅ 수정 모드 초기화 완료')
+      } else {
+        // 새 등록 모드: 빈 폼으로 초기화
+        setFormData({
+          name: '',
+          price: 0,
+          quantity: 0,
+          category: 'today',
+          image: null
+        })
+        setPreview(null)
+        console.log('✅ 새 등록 모드 초기화 완료')
+      }
+      
+      // 기타 상태 초기화
+      setCompressionInfo(null)
+      setCompressionProgress(0)
+      setErrors({})
+      setIsSubmitting(false)
+      setBypassImageProcessing(false)
+      setIsCameraOpen(false)
+      
+      // 파일 입력 초기화
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }, [isOpen, initialData])
 
   // 카메라 촬영 완료 핸들러
   const handleCameraCapture = async (file: File) => {
@@ -207,6 +259,30 @@ const ProductForm: React.FC<ProductFormProps> = ({
     
     try {
       await onSubmit(formData)
+      
+      // 성공적으로 제출된 후 폼 초기화 (새 등록 모드에서만)
+      if (!initialData) {
+        console.log('✅ 새 등록 성공 - 폼 초기화')
+        setFormData({
+          name: '',
+          price: 0,
+          quantity: 0,
+          category: 'today',
+          image: null
+        })
+        setPreview(null)
+        setCompressionInfo(null)
+        setCompressionProgress(0)
+        setErrors({})
+        setBypassImageProcessing(false)
+        setIsCameraOpen(false)
+        
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      }
+    } catch (error) {
+      console.error('폼 제출 오류:', error)
     } finally {
       setIsSubmitting(false)
     }
@@ -379,6 +455,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
   }
 
   const resetForm = () => {
+    console.log('🔄 resetForm 호출 - 전체 상태 초기화')
+    
     setFormData({
       name: '',
       price: 0,
@@ -391,11 +469,14 @@ const ProductForm: React.FC<ProductFormProps> = ({
     setCompressionProgress(0)
     setErrors({})
     setIsSubmitting(false)
-    setBypassImageProcessing(false) // 우회 모드도 리셋
-    setIsCameraOpen(false) // 카메라 모달도 리셋
+    setBypassImageProcessing(false)
+    setIsCameraOpen(false)
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
+    
+    console.log('✅ resetForm 완료')
   }
 
   const handleClose = () => {
@@ -410,14 +491,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title={title} size="md">
-      {/* 브라우저 정보 (개발 모드에서만) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
-          브라우저: {browserInfo.browser} | 인앱: {browserInfo.isInApp ? 'Y' : 'N'} | 
-          특별처리: {browserInfo.needsSpecialHandling ? 'Y' : 'N'} | 
-          제출중: {isSubmitting ? 'Y' : 'N'}
-        </div>
-      )}
 
       {/* 업로드 팁 */}
       {uploadTip && (
@@ -612,103 +685,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
           min={0}
           required
         />
-
-        {/* 🧪 테스트 영역 (개발 모드에서만 표시) */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h4 className="text-sm font-medium text-yellow-800 mb-2">🧪 디버깅 테스트</h4>
-            <p className="text-xs text-yellow-700 mb-3">
-              이미지 업로드 vs DB 저장 중 어느 부분에서 무한로딩이 발생하는지 테스트해보세요.<br/>
-              📝 브라우저 개발자 도구 콘솔을 열고 테스트하면 상세 로그를 볼 수 있습니다.
-            </p>
-            <div className="flex gap-2 mb-3">
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={handleDbConnectionTest}
-                disabled={actuallyLoading}
-                className="text-blue-700 border-blue-300 hover:bg-blue-100"
-                size="sm"
-              >
-                🔍 DB 연결 테스트
-              </Button>
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={handleServerApiTest}
-                disabled={actuallyLoading}
-                className="text-green-700 border-green-300 hover:bg-green-100"
-                size="sm"
-              >
-                🌐 서버 API 테스트
-              </Button>
-            </div>
-            <div className="flex gap-2 mb-3">
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={handleStorageBypassTest}
-                disabled={actuallyLoading || !formData.image}
-                className="text-purple-700 border-purple-300 hover:bg-purple-100"
-                size="sm"
-              >
-                🟬 Storage 우회 테스트
-              </Button>
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={handleSubmitWithoutImage}
-                disabled={actuallyLoading}
-                className="text-yellow-700 border-yellow-300 hover:bg-yellow-100"
-                size="sm"
-              >
-                🚀 이미지 없이 저장 테스트
-              </Button>
-            </div>
-            
-            {/* 인앱브라우저 전용 우회 모드 */}
-            {browserInfo.isInApp && (
-              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h5 className="text-sm font-medium text-orange-800">🟬 인앱브라우저 우회 모드</h5>
-                    <p className="text-xs text-orange-700 mt-1">
-                      이미지 압축 처리를 건너뛰고 원본 파일 그대로 업로드
-                    </p>
-                  </div>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={bypassImageProcessing}
-                      onChange={(e) => setBypassImageProcessing(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                      bypassImageProcessing ? 'bg-orange-600' : 'bg-gray-200'
-                    }`}>
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        bypassImageProcessing ? 'translate-x-6' : 'translate-x-1'
-                      }`} />
-                    </div>
-                  </label>
-                </div>
-                {bypassImageProcessing && (
-                  <p className="text-xs text-orange-600 mt-2">
-                    ⚠️ 우회 모드 활성화됨: 이미지 압축 없이 원본 파일 사용
-                  </p>
-                )}
-              </div>
-            )}
-            <div className="text-xs text-yellow-600">
-              <p><strong>1단계:</strong> DB 연결 테스트 → Supabase 직연 상태 확인</p>
-              <p><strong>2단계:</strong> 서버 API 테스트 → 대안 서버 연결 확인</p>
-              <p><strong>3단계:</strong> Storage 우회 테스트 → Base64 변환 테스트 (이미지 선택 후)</p>
-              <p><strong>4단계:</strong> 이미지 없이 저장 → 전체 플로우 확인</p>
-              <p>• <strong>3단계 성공</strong> → 이제 Storage 우회 모드로 상품 등록 가능!</p>
-              <p>• <strong>3단계 실패</strong> → 브라우저 JavaScript 자체 문제</p>
-            </div>
-          </div>
-        )}
 
         {/* 버튼 */}
         <div className="flex justify-end space-x-3 pt-4">

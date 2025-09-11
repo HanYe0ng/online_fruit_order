@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react'
 import Button from './Button'
+import { detectInAppBrowser } from '../../utils/browserDetection' // 인앱/브라우저 감지
 
 interface CameraCaptureProps {
   isOpen: boolean
@@ -17,161 +18,204 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isCapturing, setIsCapturing] = useState(false)
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment') // 후면 카메라가 기본
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
+  const [isInitialized, setIsInitialized] = useState(false)
+  const [useFallback, setUseFallback] = useState(false)
 
-  // 카메라 스트림 시작
+  const { browser, isInApp } = detectInAppBrowser()
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+  const isIOS = /iPad|iPhone|iPod/.test(ua)
+  const isSecure = typeof window !== 'undefined'
+    ? (window.location.protocol === 'https:' || window.location.hostname === 'localhost')
+    : true
+  const mediaSupported = typeof navigator !== 'undefined' && !!navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia
+
+  // ✅ 공통: 스트림 정리
+  const stopCamera = useCallback(() => {
+    try {
+      if (videoRef.current) {
+        try { videoRef.current.pause() } catch {}
+        try { (videoRef.current as any).srcObject = null } catch {}
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+    } finally {
+      setIsInitialized(false)
+      setIsCapturing(false)
+    }
+  }, [])
+
+  // ✅ 카메라 시작 (표시 후 약간 지연)
   const startCamera = useCallback(async () => {
+    if (!isOpen || isCapturing) return
+
+    // 환경 체크 → 불가하면 fallback
+    if (!isSecure || !mediaSupported || isIOS || isInApp) {
+      setUseFallback(true)
+      setError(null)
+      // 모달 열리자마자 파일선택 트리거 (선호)
+      setTimeout(() => fileInputRef.current?.click(), 200)
+      return
+    }
+
+    setUseFallback(false)
     setIsLoading(true)
     setError(null)
+    setIsInitialized(false)
+
+    // 이전 스트림 정리
+    stopCamera()
 
     try {
-      // 기존 스트림이 있다면 종료
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop())
-      }
+      // 사파리 안정화를 위한 소폭 지연
+      await new Promise(r => setTimeout(r, 80))
 
-      // 카메라 권한 요청 및 스트림 시작
       const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: facingMode,
-          width: { ideal: 1920, max: 1920 },
-          height: { ideal: 1080, max: 1080 }
-        },
+        video: { facingMode } as MediaTrackConstraints, // 불필요한 해상도 제약 제거
         audio: false
       }
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      if (!isOpen) { stream.getTracks().forEach(t => t.stop()); return }
       streamRef.current = stream
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
-    } catch (err) {
-      console.error('카메라 접근 오류:', err)
-      let errorMessage = '카메라에 접근할 수 없습니다.'
-      
-      if (err instanceof Error) {
-        if (err.name === 'NotAllowedError') {
-          errorMessage = '카메라 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.'
-        } else if (err.name === 'NotFoundError') {
-          errorMessage = '카메라 장치를 찾을 수 없습니다.'
-        } else if (err.name === 'NotReadableError') {
-          errorMessage = '카메라가 다른 앱에서 사용 중입니다.'
-        } else {
-          errorMessage = `카메라 오류: ${err.message}`
+
+      const video = videoRef.current
+      if (!video) return
+      ;(video as any).srcObject = stream
+
+      // 메타데이터가 로드되면 play 시도
+      await new Promise<void>((resolve, reject) => {
+        const onLoadedMetadata = () => {
+          cleanup()
+          resolve()
         }
+        const onVideoError = (e: Event) => {
+          cleanup()
+          reject(new Error('비디오 로드 실패'))
+        }
+        const cleanup = () => {
+          video.removeEventListener('loadedmetadata', onLoadedMetadata)
+          video.removeEventListener('error', onVideoError)
+        }
+        video.addEventListener('loadedmetadata', onLoadedMetadata)
+        video.addEventListener('error', onVideoError)
+        // 안전 타임아웃
+        setTimeout(() => {
+          cleanup()
+          reject(new Error('비디오 로드 타임아웃'))
+        }, 5000)
+      })
+
+      try { await video.play() } catch (e) {
+        // iOS/자동재생 정책으로 실패할 수 있으나 계속 진행
+        // console.warn('video.play() 실패', e)
       }
-      
-      setError(errorMessage)
-      onError?.(errorMessage)
+
+      // 초기화 완료
+      setIsInitialized(true)
+    } catch (err: any) {
+      // 권한/장치/제약 에러 메시지 가공
+      const msg =
+        err?.name === 'NotAllowedError' ? '카메라 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.'
+      : err?.name === 'NotFoundError' ? '사용 가능한 카메라를 찾지 못했습니다.'
+      : err?.name === 'NotReadableError' ? '카메라가 다른 앱에서 사용 중입니다.'
+      : err?.name === 'OverconstrainedError' ? '카메라 제약 조건을 만족하지 못했습니다.'
+      : !isSecure ? '보안 연결(HTTPS)에서만 카메라 사용이 가능합니다.'
+      : !mediaSupported ? '이 브라우저에서는 카메라 사용을 지원하지 않습니다.'
+      : err?.message || '카메라를 시작할 수 없습니다.'
+
+      // 인앱/iOS/권한 이슈 → 자동으로 파일 fallback 전환
+      setUseFallback(true)
+      setError(null) // fallback UI로 자연스럽게 전환
+      setTimeout(() => fileInputRef.current?.click(), 50)
+      onError?.(msg)
     } finally {
       setIsLoading(false)
     }
-  }, [facingMode, onError])
+  }, [facingMode, isOpen, isCapturing, isSecure, mediaSupported, isInApp, isIOS, onError, stopCamera])
 
-  // 카메라 스트림 정지
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null
-    }
-  }, [])
-
-  // 사진 촬영
+  // ✅ 촬영
   const capturePhoto = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || isCapturing) {
-      return
-    }
+    if (!videoRef.current || !canvasRef.current || isCapturing || !isInitialized) return
 
     setIsCapturing(true)
-
     try {
       const video = videoRef.current
       const canvas = canvasRef.current
-      const context = canvas.getContext('2d')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Canvas context를 가져올 수 없습니다.')
+      if (video.videoWidth === 0 || video.videoHeight === 0) throw new Error('비디오가 준비되지 않았습니다.')
 
-      if (!context) {
-        throw new Error('Canvas context를 가져올 수 없습니다.')
-      }
-
-      // 비디오 크기에 맞춰 캔버스 크기 설정
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-      // 비디오 프레임을 캔버스에 그리기
-      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+      if (!blob) throw new Error('이미지 생성에 실패했습니다.')
 
-      // 캔버스를 Blob으로 변환
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, 'image/jpeg', 0.8)
-      })
-
-      if (!blob) {
-        throw new Error('이미지 생성에 실패했습니다.')
-      }
-
-      // Blob을 File 객체로 변환
-      const timestamp = new Date().getTime()
-      const file = new File([blob], `camera_photo_${timestamp}.jpg`, {
-        type: 'image/jpeg',
-        lastModified: timestamp
-      })
-
-      // 촬영 완료 콜백 호출
+      const ts = Date.now()
+      const file = new File([blob], `camera_photo_${ts}.jpg`, { type: 'image/jpeg', lastModified: ts })
       onCapture(file)
-      
-      // 카메라 정지 및 모달 닫기
+
       stopCamera()
       onClose()
-
-    } catch (err) {
-      console.error('사진 촬영 오류:', err)
-      const errorMessage = err instanceof Error ? err.message : '사진 촬영 중 오류가 발생했습니다.'
-      setError(errorMessage)
-      onError?.(errorMessage)
+    } catch (e: any) {
+      const msg = e?.message || '사진 촬영 중 오류가 발생했습니다.'
+      setError(msg)
+      onError?.(msg)
     } finally {
       setIsCapturing(false)
     }
-  }, [isCapturing, onCapture, onClose, stopCamera, onError])
+  }, [isCapturing, isInitialized, onCapture, onClose, stopCamera, onError])
 
-  // 카메라 전환 (전면/후면)
+  // ✅ 카메라 전환
   const switchCamera = useCallback(() => {
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user')
+    setFacingMode(prev => (prev === 'user' ? 'environment' : 'user'))
   }, [])
 
-  // 모달이 열릴 때 카메라 시작
-  useEffect(() => {
-    if (isOpen) {
-      startCamera()
-    } else {
-      stopCamera()
+  // ✅ 파일 fallback 선택 처리
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      onCapture(file)
+      onClose()
     }
+  }
 
-    // 컴포넌트 언마운트 시 카메라 정지
-    return () => {
+  // ✅ 모달 열림/닫힘 감지
+  useEffect(() => {
+    let t: any
+    if (isOpen) {
+      // 열리면 시작
+      t = setTimeout(() => startCamera(), 150)
+    } else {
+      // 닫히면 정리
+      setError(null)
       stopCamera()
+      setUseFallback(false)
     }
+    return () => { clearTimeout(t) }
   }, [isOpen, startCamera, stopCamera])
 
-  // 카메라 전환 시 재시작
+  // ✅ 전면/후면 전환 시 재시작
   useEffect(() => {
-    if (isOpen && !isLoading) {
-      startCamera()
+    if (!isOpen) return
+    // 스트림 있는 상태에서만 재시작
+    if (streamRef.current || isInitialized) {
+      setIsInitialized(false)
+      const t = setTimeout(() => startCamera(), 250)
+      return () => clearTimeout(t)
     }
-  }, [facingMode, isOpen, isLoading, startCamera])
+  }, [facingMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 모달이 닫혀있으면 렌더링하지 않음
-  if (!isOpen) {
-    return null
-  }
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -179,42 +223,48 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">사진 촬영</h3>
           <button
-            onClick={() => {
-              stopCamera()
-              onClose()
-            }}
-            className="text-gray-400 hover:text-gray-600 text-2xl"
+            onClick={() => { setError(null); setIsCapturing(false); stopCamera(); onClose() }}
+            disabled={isCapturing}
+            className="text-gray-400 hover:text-gray-600 text-2xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             ×
           </button>
         </div>
 
-        {error ? (
-          // 오류 표시
+        {/* 개발용 디버그 */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
+            <div>상태: {JSON.stringify({
+              isLoading, isInitialized, isCapturing, hasError: !!error, facingMode,
+              hasStream: !!streamRef.current, hasVideo: !!videoRef.current,
+              isIOS, isInApp, isSecure, mediaSupported, browser, useFallback
+            }, null, 2)}</div>
+          </div>
+        )}
+
+        {/* Fallback: 파일 선택/촬영 */}
+        {useFallback ? (
           <div className="text-center py-8">
-            <div className="text-red-500 mb-4">
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <p className="text-gray-900 font-medium mb-2">카메라 오류</p>
-            <p className="text-sm text-gray-600 mb-4">{error}</p>
-            <div className="space-y-2">
-              <Button
-                onClick={startCamera}
-                variant="primary"
-                disabled={isLoading}
-              >
-                {isLoading ? '재시도 중...' : '다시 시도'}
+            <p className="text-sm text-gray-700 mb-3">
+              {(!isSecure && '보안 연결(HTTPS)에서만 카메라 사용이 가능합니다.') ||
+               (isIOS && 'iOS 환경에서는 브라우저 제약으로 파일 선택 방식이 더 안정적입니다.') ||
+               (isInApp && '인앱 브라우저에서는 파일 선택 방식이 더 안정적입니다.') ||
+               '현재 환경에서는 파일 선택 방식이 더 안정적입니다.'}
+            </p>
+            <div className="space-y-3">
+              <Button onClick={() => fileInputRef.current?.click()} variant="primary">
+                사진 선택/촬영
               </Button>
-              <Button
-                onClick={() => {
-                  stopCamera()
-                  onClose()
-                }}
-                variant="secondary"
-              >
-                닫기
+              <input
+                ref={fileInputRef}
+                type="file"
+                // iOS/안드로이드 인앱에서 카메라 앱을 직접 띄우도록 힌트
+                accept="image/*;capture=camera"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <Button onClick={() => { setUseFallback(false); setTimeout(() => startCamera(), 50) }} variant="secondary">
+                브라우저 카메라 시도
               </Button>
             </div>
           </div>
@@ -235,16 +285,35 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
                   autoPlay
                   playsInline
                   muted
+                  controls={false}
+                  preload="none"
                   className="w-full aspect-video object-cover"
+                  onError={(e) => {
+                    setError('비디오 재생 중 오류가 발생했습니다.')
+                    setIsInitialized(false)
+                  }}
+                  onLoadedMetadata={(e) => {
+                    const v = e.currentTarget
+                    if (v.videoWidth > 0 && v.videoHeight > 0 && !isInitialized && !isLoading) {
+                      setIsInitialized(true)
+                    }
+                  }}
+                  onCanPlay={() => {
+                    if (!isInitialized && !isLoading && videoRef.current) {
+                      const v = videoRef.current
+                      if (v.videoWidth > 0 && v.videoHeight > 0) setIsInitialized(true)
+                    }
+                  }}
                 />
               )}
-              
+
               {/* 카메라 전환 버튼 */}
               {!isLoading && !error && (
                 <button
                   onClick={switchCamera}
                   disabled={isCapturing}
                   className="absolute top-4 right-4 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 disabled:opacity-50"
+                  title="전면/후면 전환"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -256,38 +325,32 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
             {/* 숨겨진 캔버스 */}
             <canvas ref={canvasRef} className="hidden" />
 
-            {/* 안내 메시지 */}
+            {/* 안내 */}
             <div className="text-center mb-4">
-              <p className="text-sm text-gray-600">
-                상품 사진을 촬영해주세요. 조명이 밝은 곳에서 촬영하면 더 좋은 품질의 사진을 얻을 수 있습니다.
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                현재 카메라: {facingMode === 'user' ? '전면' : '후면'}
-              </p>
+              <p className="text-sm text-gray-600">상품 사진을 촬영해주세요. 밝은 곳에서 촬영하면 품질이 좋아집니다.</p>
+              <p className="text-xs text-gray-500 mt-1">현재 카메라: {facingMode === 'user' ? '전면' : '후면'}</p>
             </div>
 
             {/* 버튼들 */}
             <div className="flex justify-center space-x-4">
-              <Button
-                onClick={() => {
-                  stopCamera()
-                  onClose()
-                }}
-                variant="secondary"
-                disabled={isCapturing}
-              >
+              <Button onClick={() => { stopCamera(); onClose() }} variant="secondary" disabled={isCapturing}>
                 취소
               </Button>
               <Button
                 onClick={capturePhoto}
                 variant="primary"
-                disabled={isLoading || isCapturing}
-                className="bg-blue-600 hover:bg-blue-700"
+                disabled={isLoading || isCapturing || !isInitialized}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isCapturing ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                     촬영 중...
+                  </>
+                ) : !isInitialized ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    카메라 준비중...
                   </>
                 ) : (
                   <>

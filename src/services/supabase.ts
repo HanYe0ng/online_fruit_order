@@ -21,39 +21,31 @@ function safeStorage(): StorageLike {
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL as string | undefined
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY as string | undefined
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  // 빌드/주입이 안 됐으면 경고만 남기고 진행 (네트워크에서 바로 에러 확인)
   // eslint-disable-next-line no-console
   console.warn('[Supabase] ENV 누락: REACT_APP_SUPABASE_URL / REACT_APP_SUPABASE_ANON_KEY')
 }
 
-/* ---------- IAB 대응: Abort 없이 하드 타임아웃 ---------- */
-/** AbortController 없이 Promise.race만으로 끊는다(요청은 백그라운드에 남을 수 있음). */
-function hardTimeoutFetch(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 10000) {
+/* ---------- Abort 기반 타임아웃 fetch ---------- */
+function abortableFetch(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 15000) {
   const nativeFetch = (globalThis as any)._nativeFetch ?? fetch
-  // 디버깅 로그 (필요 없으면 주석 처리)
-  // console.debug('[fetch]', typeof input === 'string' ? input : (input as any)?.url)
-  return Promise.race([
-    nativeFetch(input as any, {
-      // 인앱에서 CORS/keepalive가 꼬이는 경우가 있어 보수적으로 지정
-      keepalive: false,
-      redirect: 'follow',
-      credentials: 'omit',
-      ...init,
-    }),
-    new Promise<Response>((_, rej) => {
-      setTimeout(() => rej(new Error('timeout')), timeoutMs)
-    }),
-  ])
+  const ac = new AbortController()
+  const timer = setTimeout(() => {
+    // Abort 발생 → 실제 네트워크 커넥션도 해제
+    ac.abort(new Error('timeout'))
+  }, timeoutMs)
+
+  return nativeFetch(input as any, { ...init, signal: ac.signal })
+    .finally(() => clearTimeout(timer))
 }
 
-/** 1회 재시도(첫 시도가 timeout일 때만) */
-async function fetchWithRetryNoAbort(input: RequestInfo | URL, init?: RequestInit) {
+/** timeout/Abort일 때에만 1회 재시도 */
+async function fetchWithRetryAbort(input: RequestInfo | URL, init?: RequestInit) {
   try {
-    return await hardTimeoutFetch(input, init, 10000) // 10초
+    return await abortableFetch(input, init, 15000)
   } catch (e: any) {
-    if (e && e.message === 'timeout') {
-      // 한번만 재시도
-      return hardTimeoutFetch(input, init, 10000)
+    if (e?.name === 'AbortError' || e?.message === 'timeout') {
+      // 네트워크 일시 hiccup 대응: 1회만 재시도
+      return abortableFetch(input, init, 15000)
     }
     throw e
   }
@@ -64,13 +56,13 @@ export const supabase = createClient<Database>(
   SUPABASE_URL ?? '',
   SUPABASE_ANON_KEY ?? '',
   {
-    // ✅ IAB에서 "끝없이 대기" 방지: 전역 fetch를 하드 타임아웃 래퍼로 교체
-    global: { fetch: fetchWithRetryNoAbort },
+    // ✅ Abort되는 fetch로 교체 (무한 pending/커넥션 고갈 방지)
+    global: { fetch: fetchWithRetryAbort },
     auth: {
       storage: safeStorage(),
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: false, // 인앱 초기 파싱 대기/루프 방지
+      detectSessionInUrl: false,
     },
   }
 )

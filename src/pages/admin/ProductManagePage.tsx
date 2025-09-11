@@ -64,11 +64,17 @@ const ProductManagePage: React.FC = () => {
       if (result.error) {
         toast.error('상품 등록 실패', result.error)
       } else {
+        console.log('✅ 상품 등록 성공 - 모달 닫기 및 상태 정리')
+        
+        // 성공 후 상태 정리
         setIsFormOpen(false)
+        setEditingProduct(null) // 편집 상태 초기화
+        
         toast.success('상품 등록 완료', '새 상품이 성공적으로 등록되었습니다.')
         refetch()
       }
-    } catch {
+    } catch (error) {
+      console.error('상품 등록 오류:', error)
       toast.error('상품 등록 오류', '예상치 못한 오류가 발생했습니다.')
     }
   }
@@ -130,14 +136,16 @@ const ProductManagePage: React.FC = () => {
 
   // 새 상품 등록 버튼
   const handleNewProductClick = () => {
-    setEditingProduct(null)
+    console.log('🆕 새 상품 등록 버튼 클릭 - 상태 초기화')
+    setEditingProduct(null) // 이전 편집 데이터 제거
     setIsFormOpen(true)
   }
 
   // 폼 닫기
   const handleFormClose = () => {
+    console.log('❌ 폼 닫기 - 상태 초기화')
     setIsFormOpen(false)
-    setEditingProduct(null)
+    setEditingProduct(null) // 편집 데이터 제거
   }
 
   // 에러 상태 처리
