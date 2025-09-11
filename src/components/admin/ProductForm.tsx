@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Button, Input, Modal } from '../common'
+import { Button, Input, Modal, CameraCapture } from '../common'
 import { ProductFormData, Product } from '../../types/product'
 import { compressImage, validateImageFile, formatFileSize, CompressionResult } from '../../utils/imageUtils'
 import { detectInAppBrowser } from '../../utils/browserDetection'
@@ -42,6 +42,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const [uploadTip, setUploadTip] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bypassImageProcessing, setBypassImageProcessing] = useState(false) // 새로 추가
+  const [isCameraOpen, setIsCameraOpen] = useState(false) // 카메라 모달 상태
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -53,13 +54,28 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
   }, [browserInfo.browser, browserInfo.needsSpecialHandling, browserInfo.isInApp])
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  // 카메라 촬영 완료 핸들러
+  const handleCameraCapture = async (file: File) => {
+    console.log('카메라에서 촬영된 파일:', {
+      name: file.name,
+      size: (file.size / 1024 / 1024).toFixed(2) + 'MB',
+      type: file.type
+    });
 
+    await processImageFile(file)
+  }
+
+  // 카메라 오류 핸들러
+  const handleCameraError = (error: string) => {
+    console.error('카메라 오류:', error)
+    setErrors(prev => ({ ...prev, image: error }))
+  }
+
+  // 이미지 파일 처리 공통 함수
+  const processImageFile = async (file: File) => {
     const settings = getInAppOptimizationSettings()
 
-    console.log('파일 선택됨:', {
+    console.log('파일 처리 시작:', {
       name: file.name,
       size: (file.size / 1024 / 1024).toFixed(2) + 'MB',
       type: file.type,
@@ -142,6 +158,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
       setIsCompressing(false)
       setCompressionProgress(0)
     }
+  }
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    await processImageFile(file)
   }
 
   const validateForm = (): boolean => {
@@ -369,6 +392,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     setErrors({})
     setIsSubmitting(false)
     setBypassImageProcessing(false) // 우회 모드도 리셋
+    setIsCameraOpen(false) // 카메라 모달도 리셋
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -445,14 +469,30 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 className="hidden"
                 disabled={isCompressing || actuallyLoading}
               />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isCompressing || actuallyLoading}
-              >
-                {isCompressing ? '이미지 처리중...' : actuallyLoading ? '업로드 중...' : '이미지 선택'}
-              </Button>
+              <div className="flex gap-2 mb-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isCompressing || actuallyLoading}
+                  className="flex-1"
+                >
+                  {isCompressing ? '이미지 처리중...' : actuallyLoading ? '업로드 중...' : '파일 선택'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCameraOpen(true)}
+                  disabled={isCompressing || actuallyLoading}
+                  className="flex-1 bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-700"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  카메라 촬영
+                </Button>
+              </div>
               <p className="text-xs text-gray-500 mt-1">
                 JPG, PNG, WEBP 파일 (최대 {browserInfo.browser === 'kakao' ? '10MB' : '20MB'})
               </p>
@@ -690,6 +730,14 @@ const ProductForm: React.FC<ProductFormProps> = ({
           </Button>
         </div>
       </form>
+
+      {/* 카메라 촬영 모달 */}
+      <CameraCapture
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCameraCapture}
+        onError={handleCameraError}
+      />
     </Modal>
   )
 }

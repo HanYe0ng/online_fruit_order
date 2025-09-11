@@ -9,6 +9,7 @@ export { default as ErrorBoundary } from './ErrorBoundary'
 export { default as NetworkError } from './NetworkError'
 export { default as EmptyState } from './EmptyState'
 export { default as SkeletonLoader, ProductCardSkeleton, OrderCardSkeleton, TableSkeleton } from './SkeletonLoader'
+export { default as CameraCapture } from './CameraCapture'
 
 // 타입 exports
 export type { ButtonProps } from './Button'

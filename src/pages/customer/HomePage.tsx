@@ -6,7 +6,6 @@ import GiftProductCard from '../../components/customer/GiftProductCard'
 import { useCartStore } from '../../stores/cartStore'
 import { ROUTES } from '../../utils/constants'
 import { supabase } from '../../services/supabase'
-import { mockGiftProducts } from '../../data/mockData'
 import { updatePageTitle, updatePageDescription, PAGE_TITLES, PAGE_DESCRIPTIONS } from '../../utils/pageTitle'
 import type { Product as UiProduct } from '../../types/product'
 
@@ -137,10 +136,12 @@ const HomePage: React.FC = () => {
 
   const filteredProducts = useMemo(() => {
     return availableDbProducts.filter(p => {
+      // category 필드가 있으면 그것을 우선 사용
       if ('category' in p && p.category) {
         return p.category === selectedCategory
       }
       
+      // category 필드가 없으면 상품명으로 판단 (레거시 지원)
       if (selectedCategory === 'gift') {
         return p.name.toLowerCase().includes('선물') || 
                p.name.toLowerCase().includes('기프트') ||
@@ -302,10 +303,7 @@ const HomePage: React.FC = () => {
                   color: 'var(--white)' 
                 }}
               >
-                {selectedCategory === 'gift' 
-                  ? mockGiftProducts.filter(product => product.store_id === selectedStoreId).length
-                  : availableUiProducts.length
-                }개 상품
+                {availableUiProducts.length}개 상품
               </span>
             </div>
           </div>
@@ -348,44 +346,35 @@ const HomePage: React.FC = () => {
             <div className="py-12">
               <Loading text="상품을 불러오는 중..." />
             </div>
-          ) : selectedCategory === 'gift' ? (
-            // 선택된 점포의 선물용 상품 필터링
-            mockGiftProducts.filter(product => product.store_id === selectedStoreId).length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {mockGiftProducts
-                  .filter(product => product.store_id === selectedStoreId)
-                  .map((product) => (
-                    <GiftProductCard
-                      key={product.id}
-                      product={product}
-                    />
-                  ))
-                }
-              </div>
-            ) : (
-              <div 
-                className="text-center py-16 rounded-lg"
-                style={{ background: 'var(--gray-50)' }}
-              >
-                <div className="text-6xl mb-4">🎁</div>
-                <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--gray-900)' }}>
-                  과일선물 상품을 준비 중입니다
-                </h3>
-                <p style={{ color: 'var(--gray-600)' }}>
-                  곧 맛있는 선물용 상품들을 준비해드릴게요!
-                </p>
-              </div>
-            )
           ) : availableUiProducts.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {availableUiProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product} 
-                  onAddToCart={(p) => {
-                    console.log(`${p.name}이(가) 장바구니에 추가되었습니다.`)
-                  }}
-                />
+                selectedCategory === 'gift' ? (
+                  <GiftProductCard
+                    key={product.id}
+                    product={{
+                      ...product,
+                      originalPrice: product.price + Math.floor(product.price * 0.1),
+                      discount: 10,
+                      description: `신선한 ${product.name}을 선물로 전해보세요.`,
+                      tags: ['신선한', '선물용', '추천'],
+                      rating: 4.5 + Math.random() * 0.5,
+                      reviewCount: Math.floor(Math.random() * 50) + 10,
+                      images: product.image_url ? [product.image_url] : [],
+                      nutritionInfo: `영양가득한 ${product.name}`,
+                      storageInfo: '서늘하고 통풍이 잘 되는 곳에 보관',
+                      origin: '국내산'
+                    }}
+                  />
+                ) : (
+                  <ProductCard
+                    key={product.id}
+                    product={product} 
+                    onAddToCart={(p) => {
+                      console.log(`${p.name}이(가) 장바구니에 추가되었습니다.`)
+                    }}
+                  />
+                )
               ))}
             </div>
           ) : (
@@ -393,12 +382,20 @@ const HomePage: React.FC = () => {
               className="text-center py-16 rounded-lg"
               style={{ background: 'var(--gray-50)' }}
             >
-              <div className="text-6xl mb-4">🛒</div>
+              <div className="text-6xl mb-4">
+                {selectedCategory === 'gift' ? '🎁' : '🛒'}
+              </div>
               <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--gray-900)' }}>
-                오늘의 과일 상품이 없습니다
+                {selectedCategory === 'gift' 
+                  ? '과일선물 상품이 없습니다'
+                  : '오늘의 과일 상품이 없습니다'
+                }
               </h3>
               <p className="mb-6" style={{ color: 'var(--gray-600)' }}>
-                곧 신선한 상품들을 준비해드릴게요!
+                {selectedCategory === 'gift'
+                  ? '과일선물 상품을 준비하고 있습니다. 잠시만 기다려주세요!'
+                  : '곧 신선한 상품들을 준비해드릴게요!'
+                }
               </p>
               {selectedStoreId && (
                 <button 
