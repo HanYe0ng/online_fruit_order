@@ -25,8 +25,8 @@ const OrderCompletePage: React.FC = () => {
 
   // 계좌 정보
   const bankInfo = {
-    bankName: '기업은행',
-    accountNumber: '000000000000'
+    bankName: '기업은행 (주)달콤네',
+    accountNumber: '06913118704010'
   }
 
   useEffect(() => {
@@ -202,7 +202,7 @@ const OrderCompletePage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 rounded-lg" style={{ background: 'var(--gray-50)' }}>
                 <div>
-                  <div className="font-medium" style={{ color: 'var(--gray-900)' }}>은행명</div>
+                  <div className="font-medium" style={{ color: 'var(--gray-900)' }}>은행명(예금주)</div>
                   <div className="text-lg font-semibold" style={{ color: 'var(--dalkomne-orange)' }}>{bankInfo.bankName}</div>
                 </div>
               </div>
@@ -243,7 +243,7 @@ const OrderCompletePage: React.FC = () => {
             <div className="text-sm space-y-2" style={{ color: 'var(--gray-700)' }}>
               <div className="flex items-center space-x-2">
                 <span>•</span>
-                <span>배달은 주문마감 후 당일 오후 5시부터 순차적으로 진행됩니다.</span>
+                <span>배달은 주문마감 후 당일 오후 4시 30분부터 순차적으로 진행됩니다.</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span>•</span>
