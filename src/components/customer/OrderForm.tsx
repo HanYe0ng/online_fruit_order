@@ -196,7 +196,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
         {/* 고객 정보 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
-            label="이름"
+            label="(이름(송금 보내는 이))"
             value={formData.customer_name}
             onChange={(e) => handleInputChange('customer_name', e.target.value)}
             placeholder="이름을 입력하세요"
@@ -313,9 +313,10 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, onSuccess }) => 
           <div className="text-sm text-blue-800">
             <p className="font-medium mb-1">📢 주문 전 확인사항</p>
             <ul className="text-xs space-y-1">
-              <li>• 배달 시 현금 또는 계좌이체로 결제해주세요</li>
-              <li>• 배달 예상 시간은 1-2시간입니다</li>
-              <li>• 연락처를 정확히 입력해주세요</li>
+              <li>• 주문완료를 누르시고 마감전(오후 4시)까지 입금해 주셔야 배송이 가능합니다.</li>
+              <li>• 배달은 오후 4시 30분 부터 순차적으로 배달이 시작됩니다.</li>
+              <li>• 연락처와 주문자 성함을 정확히 확인하여 작성해 주세요.</li>
+              <li>• 계좌이체시 주문자 성함으로 작성하여 이체해 주세요</li>
             </ul>
           </div>
         </Card>
