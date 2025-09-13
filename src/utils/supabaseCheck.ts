@@ -1,4 +1,5 @@
 import { supabase } from '../services/supabase'
+import type { Bucket } from '@supabase/storage-js'
 
 /**
  * Supabase 설정을 확인하는 유틸리티
@@ -40,9 +41,9 @@ export const checkSupabaseSetup = async () => {
       return false
     }
     
-    console.log('📂 사용 가능한 버킷들:', buckets?.map(b => b.name))
+    console.log('📂 사용 가능한 버킷들:', buckets?.map((b: Bucket) => b.name))
     
-    const productImagesBucket = buckets?.find(b => b.name === 'product-images')
+    const productImagesBucket = buckets?.find((b: Bucket) => b.name === 'product-images')
     if (!productImagesBucket) {
       console.error('❌ product-images 버킷이 없습니다!')
       console.log('💡 Supabase 대시보드에서 Storage > New bucket > "product-images" 생성이 필요합니다.')

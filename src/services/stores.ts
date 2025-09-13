@@ -1,5 +1,9 @@
 import { supabase } from './supabase'
 import { StoreInfo } from '../types/product'
+import type { Database } from '../types/database'
+
+// Supabase 스토어 타입
+type SupabaseStore = Database['public']['Tables']['stores']['Row']
 
 // Supabase에서 매장 정보 조회
 export const fetchStores = async (): Promise<StoreInfo[]> => {
@@ -15,7 +19,7 @@ export const fetchStores = async (): Promise<StoreInfo[]> => {
     }
 
     // DB의 location을 address로 매핑
-    return data.map(store => ({
+    return data.map((store: SupabaseStore) => ({
       id: store.id,
       name: store.name,
       address: store.location || '',
@@ -46,9 +50,9 @@ export const fetchStoreById = async (storeId: number): Promise<StoreInfo | null>
     }
 
     return {
-      id: data.id,
-      name: data.name,
-      address: data.location || '',
+      id: (data as SupabaseStore).id,
+      name: (data as SupabaseStore).name,
+      address: (data as SupabaseStore).location || '',
       phone: ''
     }
   } catch (error) {

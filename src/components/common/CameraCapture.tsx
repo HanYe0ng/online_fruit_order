@@ -57,7 +57,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
     if (!isOpen || isCapturing) return
 
     // 환경 체크 → 불가하면 fallback
-    if (!isSecure || !mediaSupported || isIOS || isInApp) {
+    if (!isSecure || !mediaSupported) {
       setUseFallback(true)
       setError(null)
       // 모달 열리자마자 파일선택 트리거 (선호)
@@ -75,71 +75,182 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 
     try {
       // 사파리 안정화를 위한 소폭 지연
-      await new Promise(r => setTimeout(r, 80))
+      await new Promise(r => setTimeout(r, 100))
 
-      const constraints: MediaStreamConstraints = {
-        video: { facingMode } as MediaTrackConstraints, // 불필요한 해상도 제약 제거
-        audio: false
+      // 🔧 더 강건한 카메라 제약 조건
+      const baseConstraints = {
+        audio: false,
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 }
+        } as MediaTrackConstraints
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
-      if (!isOpen) { stream.getTracks().forEach(t => t.stop()); return }
+      let stream: MediaStream | null = null
+      
+      // 첫 번째 시도: 이상적인 설정
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(baseConstraints)
+        console.log('✅ 카메라 첫 번째 시도 성공:', facingMode)
+      } catch (firstError: any) {
+        console.warn('⚠️ 카메라 첫 번째 시도 실패:', firstError.name, firstError.message)
+        
+        // 두 번째 시도: exact 제약 조건으로 강제
+        try {
+          const exactConstraints = {
+            audio: false,
+            video: {
+              facingMode: { exact: facingMode }
+            } as MediaTrackConstraints
+          }
+          stream = await navigator.mediaDevices.getUserMedia(exactConstraints)
+          console.log('✅ 카메라 두 번째 시도 성공 (exact):', facingMode)
+        } catch (secondError: any) {
+          console.warn('⚠️ 카메라 두 번째 시도 실패:', secondError.name, secondError.message)
+          
+          // 세 번째 시도: 기본 카메라 (facingMode 없이)
+          try {
+            const basicConstraints = {
+              audio: false,
+              video: true
+            }
+            stream = await navigator.mediaDevices.getUserMedia(basicConstraints)
+            console.log('✅ 카메라 세 번째 시도 성공 (기본 카메라)')
+          } catch (thirdError: any) {
+            console.error('❌ 모든 카메라 시도 실패:', thirdError.name, thirdError.message)
+            throw thirdError // 마지막 에러를 throw
+          }
+        }
+      }
+
+      if (!stream) {
+        throw new Error('카메라 스트림을 얻을 수 없습니다.')
+      }
+
+      if (!isOpen) { 
+        stream.getTracks().forEach(t => t.stop()) 
+        return 
+      }
+      
       streamRef.current = stream
 
       const video = videoRef.current
-      if (!video) return
+      if (!video) {
+        stream.getTracks().forEach(t => t.stop())
+        return
+      }
+      
+      // 비디오 요소 설정
       ;(video as any).srcObject = stream
-
-      // 메타데이터가 로드되면 play 시도
+      
+      // 🔧 더 강건한 비디오 로드 처리
       await new Promise<void>((resolve, reject) => {
+        let resolved = false
+        
         const onLoadedMetadata = () => {
+          if (resolved) return
+          resolved = true
           cleanup()
+          console.log('✅ 비디오 메타데이터 로드 완료')
           resolve()
         }
-        const onVideoError = (e: Event) => {
+        
+        const onCanPlay = () => {
+          if (resolved) return
+          resolved = true
           cleanup()
+          console.log('✅ 비디오 재생 준비 완료')
+          resolve()
+        }
+        
+        const onVideoError = (e: Event) => {
+          if (resolved) return
+          resolved = true
+          cleanup()
+          console.error('❌ 비디오 로드 에러:', e)
           reject(new Error('비디오 로드 실패'))
         }
+        
         const cleanup = () => {
           video.removeEventListener('loadedmetadata', onLoadedMetadata)
+          video.removeEventListener('canplay', onCanPlay)
           video.removeEventListener('error', onVideoError)
         }
+        
         video.addEventListener('loadedmetadata', onLoadedMetadata)
+        video.addEventListener('canplay', onCanPlay)
         video.addEventListener('error', onVideoError)
-        // 안전 타임아웃
+        
+        // 안전 타임아웃 (더 길게)
         setTimeout(() => {
+          if (resolved) return
+          resolved = true
           cleanup()
-          reject(new Error('비디오 로드 타임아웃'))
-        }, 5000)
+          console.warn('⚠️ 비디오 로드 타임아웃')
+          reject(new Error('비디오 로드 타임아웃 (8초)'))
+        }, 8000)
       })
 
-      try { await video.play() } catch (e) {
-        // iOS/자동재생 정책으로 실패할 수 있으나 계속 진행
-        // console.warn('video.play() 실패', e)
+      // 비디오 재생 시도 (여러 번 시도)
+      let playAttempts = 0
+      const maxPlayAttempts = 3
+      
+      while (playAttempts < maxPlayAttempts) {
+        try {
+          await video.play()
+          console.log('✅ 비디오 재생 시작됨')
+          break
+        } catch (playError: any) {
+          playAttempts++
+          console.warn(`⚠️ 비디오 재생 시도 ${playAttempts} 실패:`, playError.name, playError.message)
+          
+          if (playAttempts >= maxPlayAttempts) {
+            console.warn('⚠️ 비디오 재생 실패하지만 계속 진행 (사용자 상호작용 필요할 수 있음)')
+            // iOS/자동재생 정책으로 실패할 수 있으나 계속 진행
+          } else {
+            // 잠시 대기 후 재시도
+            await new Promise(r => setTimeout(r, 500))
+          }
+        }
       }
 
       // 초기화 완료
       setIsInitialized(true)
+      console.log('✅ 카메라 초기화 완전 완료')
+      
     } catch (err: any) {
+      console.error('❌ 카메라 시작 실패:', err)
+      
       // 권한/장치/제약 에러 메시지 가공
       const msg =
         err?.name === 'NotAllowedError' ? '카메라 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.'
       : err?.name === 'NotFoundError' ? '사용 가능한 카메라를 찾지 못했습니다.'
       : err?.name === 'NotReadableError' ? '카메라가 다른 앱에서 사용 중입니다.'
-      : err?.name === 'OverconstrainedError' ? '카메라 제약 조건을 만족하지 못했습니다.'
+      : err?.name === 'OverconstrainedError' ? `${facingMode === 'environment' ? '후면' : '전면'} 카메라를 찾을 수 없습니다. 다른 카메라를 시도해보세요.`
       : !isSecure ? '보안 연결(HTTPS)에서만 카메라 사용이 가능합니다.'
       : !mediaSupported ? '이 브라우저에서는 카메라 사용을 지원하지 않습니다.'
+      : err?.message?.includes('타임아웃') ? '카메라 로딩 시간이 초과되었습니다. 다시 시도해주세요.'
       : err?.message || '카메라를 시작할 수 없습니다.'
 
-      // 인앱/iOS/권한 이슈 → 자동으로 파일 fallback 전환
-      setUseFallback(true)
-      setError(null) // fallback UI로 자연스럽게 전환
-      setTimeout(() => fileInputRef.current?.click(), 50)
+      setError(msg)
       onError?.(msg)
+      
+      // OverconstrainedError (특정 카메라를 찾을 수 없음)의 경우 자동으로 전환하지 않고 사용자가 선택하도록
+      if (err?.name === 'OverconstrainedError') {
+        console.log('⚠️ OverconstrainedError - 사용자가 카메라 전환하도록 안내')
+      } else {
+        // 다른 에러의 경우 파일 fallback으로 전환
+        setTimeout(() => {
+          setUseFallback(true)
+          setError(null)
+          setTimeout(() => fileInputRef.current?.click(), 100)
+        }, 2000)
+      }
     } finally {
       setIsLoading(false)
     }
-  }, [facingMode, isOpen, isCapturing, isSecure, mediaSupported, isInApp, isIOS, onError, stopCamera])
+  }, [facingMode, isOpen, isCapturing, isSecure, mediaSupported, onError, stopCamera])
 
   // ✅ 촬영
   const capturePhoto = useCallback(async () => {
@@ -207,10 +318,12 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   // ✅ 전면/후면 전환 시 재시작
   useEffect(() => {
     if (!isOpen) return
-    // 스트림 있는 상태에서만 재시작
+    // 스트림이 있거나 초기화된 상태에서만 재시작
     if (streamRef.current || isInitialized) {
+      console.log(`🔄 카메라 전환: ${facingMode} 모드로 재시작`)
       setIsInitialized(false)
-      const t = setTimeout(() => startCamera(), 250)
+      setError(null) // 이전 에러 초기화
+      const t = setTimeout(() => startCamera(), 300)
       return () => clearTimeout(t)
     }
   }, [facingMode]) // eslint-disable-line react-hooks/exhaustive-deps

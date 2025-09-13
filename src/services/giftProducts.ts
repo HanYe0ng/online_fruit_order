@@ -1,4 +1,8 @@
-import { supabase } from './supabase'
+import { 
+  productsTable, 
+  giftProductDetailsTable, 
+  viewsTable 
+} from './supabase-wrapper'
 
 // DB에서 과일선물 상품 조회
 export interface DbGiftProduct {
@@ -25,10 +29,7 @@ export interface DbGiftProduct {
 // 과일선물 상품 전체 조회
 export const fetchGiftProducts = async (): Promise<DbGiftProduct[]> => {
   try {
-    const { data, error } = await supabase
-      .from('gift_products_view')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data, error } = await viewsTable.selectGiftProductsView()
 
     if (error) {
       console.error('과일선물 상품 조회 오류:', error)
@@ -45,11 +46,7 @@ export const fetchGiftProducts = async (): Promise<DbGiftProduct[]> => {
 // 특정 점포의 과일선물 상품 조회
 export const fetchGiftProductsByStore = async (storeId: number): Promise<DbGiftProduct[]> => {
   try {
-    const { data, error } = await supabase
-      .from('gift_products_view')
-      .select('*')
-      .eq('store_id', storeId)
-      .order('created_at', { ascending: false })
+    const { data, error } = await viewsTable.selectGiftProductsViewByStore(storeId)
 
     if (error) {
       console.error('점포별 과일선물 상품 조회 오류:', error)
@@ -66,11 +63,7 @@ export const fetchGiftProductsByStore = async (storeId: number): Promise<DbGiftP
 // 특정 과일선물 상품 상세 조회
 export const fetchGiftProductById = async (productId: number): Promise<DbGiftProduct | null> => {
   try {
-    const { data, error } = await supabase
-      .from('gift_products_view')
-      .select('*')
-      .eq('id', productId)
-      .single()
+    const { data, error } = await viewsTable.selectGiftProductsViewById(productId)
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -109,26 +102,28 @@ export interface CreateGiftProductData {
 export const createGiftProduct = async (productData: CreateGiftProductData): Promise<number> => {
   try {
     // 1. 기본 상품 정보 추가
-    const { data: product, error: productError } = await supabase
-      .from('products')
-      .insert({
-        store_id: productData.store_id,
-        name: productData.name,
-        price: productData.price,
-        quantity: productData.quantity,
-        image_url: productData.image_url,
-        is_soldout: false,
-        category: 'gift'
-      })
-      .select('id')
-      .single()
+    const productInsert = {
+      store_id: productData.store_id,
+      name: productData.name,
+      price: productData.price,
+      quantity: productData.quantity,
+      image_url: productData.image_url,
+      is_soldout: false,
+      category: 'gift' as const
+    }
+
+    const { data: product, error: productError } = await productsTable.insert(productInsert)
 
     if (productError) {
       console.error('상품 추가 오류:', productError)
       throw productError
     }
 
-    const productId = product.id
+    if (!product?.id) {
+      throw new Error('상품 ID가 반환되지 않았습니다.')
+    }
+
+    const productId = product.id as number
 
     // 2. 과일선물 상세 정보 추가 (선택적 필드가 있는 경우에만)
     if (productData.original_price || productData.discount_rate || 
@@ -136,20 +131,20 @@ export const createGiftProduct = async (productData: CreateGiftProductData): Pro
         productData.nutrition_info || productData.storage_info || 
         productData.origin || productData.description_detail) {
       
-      const { error: detailError } = await supabase
-        .from('gift_product_details')
-        .insert({
-          product_id: productId,
-          original_price: productData.original_price,
-          discount_rate: productData.discount_rate,
-          tags: productData.tags,
-          rating: productData.rating,
-          review_count: productData.review_count,
-          nutrition_info: productData.nutrition_info,
-          storage_info: productData.storage_info,
-          origin: productData.origin,
-          description_detail: productData.description_detail
-        })
+      const detailInsert = {
+        product_id: productId,
+        original_price: productData.original_price,
+        discount_rate: productData.discount_rate,
+        tags: productData.tags,
+        rating: productData.rating,
+        review_count: productData.review_count,
+        nutrition_info: productData.nutrition_info,
+        storage_info: productData.storage_info,
+        origin: productData.origin,
+        description_detail: productData.description_detail
+      }
+
+      const { error: detailError } = await giftProductDetailsTable.insert(detailInsert)
 
       if (detailError) {
         console.error('상품 상세정보 추가 오류:', detailError)
@@ -182,10 +177,7 @@ export const updateGiftProduct = async (productId: number, productData: Partial<
     )
 
     if (Object.keys(filteredBasicFields).length > 0) {
-      const { error: productError } = await supabase
-        .from('products')
-        .update(filteredBasicFields)
-        .eq('id', productId)
+      const { error: productError } = await productsTable.update(productId, filteredBasicFields)
 
       if (productError) {
         console.error('상품 업데이트 오류:', productError)
@@ -213,18 +205,11 @@ export const updateGiftProduct = async (productId: number, productData: Partial<
 
     if (Object.keys(filteredDetailFields).length > 0) {
       // 상세 정보가 이미 존재하는지 확인
-      const { data: existingDetail } = await supabase
-        .from('gift_product_details')
-        .select('id')
-        .eq('product_id', productId)
-        .single()
+      const { data: existingDetail } = await giftProductDetailsTable.selectByProductId(productId)
 
       if (existingDetail) {
         // 업데이트
-        const { error: detailError } = await supabase
-          .from('gift_product_details')
-          .update(filteredDetailFields)
-          .eq('product_id', productId)
+        const { error: detailError } = await giftProductDetailsTable.update(productId, filteredDetailFields)
 
         if (detailError) {
           console.error('상품 상세정보 업데이트 오류:', detailError)
@@ -232,12 +217,12 @@ export const updateGiftProduct = async (productId: number, productData: Partial<
         }
       } else {
         // 새로 추가
-        const { error: detailError } = await supabase
-          .from('gift_product_details')
-          .insert({
-            product_id: productId,
-            ...filteredDetailFields
-          })
+        const detailInsert = {
+          product_id: productId,
+          ...filteredDetailFields
+        }
+        
+        const { error: detailError } = await giftProductDetailsTable.insert(detailInsert)
 
         if (detailError) {
           console.error('상품 상세정보 추가 오류:', detailError)
@@ -255,11 +240,7 @@ export const updateGiftProduct = async (productId: number, productData: Partial<
 export const deleteGiftProduct = async (productId: number): Promise<void> => {
   try {
     // products 테이블에서 삭제하면 gift_product_details도 CASCADE로 자동 삭제됨
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', productId)
-      .eq('category', 'gift') // 안전을 위해 gift 상품만 삭제
+    const { error } = await productsTable.delete(productId)
 
     if (error) {
       console.error('과일선물 상품 삭제 오류:', error)
@@ -274,11 +255,7 @@ export const deleteGiftProduct = async (productId: number): Promise<void> => {
 // 과일선물 상품 품절 상태 변경
 export const toggleGiftProductSoldOut = async (productId: number, isSoldOut: boolean): Promise<void> => {
   try {
-    const { error } = await supabase
-      .from('products')
-      .update({ is_soldout: isSoldOut })
-      .eq('id', productId)
-      .eq('category', 'gift')
+    const { error } = await productsTable.update(productId, { is_soldout: isSoldOut })
 
     if (error) {
       console.error('상품 품절 상태 변경 오류:', error)

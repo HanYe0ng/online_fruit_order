@@ -1,12 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { orderService } from '../services/order'
-import { CreateOrderData } from '../types/order'
+import { CreateOrderData, Apartment, OrderDetail, OrderView } from '../types/order'
 
 export const useSearchApartments = (query: string) => {
   return useQuery({
     queryKey: ['apartments', query],
-    queryFn: () => orderService.searchApartments(query),
-    enabled: query.length > 1
+    queryFn: async () => {
+      const result = await orderService.searchApartments(query)
+      return result
+    },
+    enabled: query.length > 1,
+    select: (data) => ({
+      ...data,
+      data: (data?.data || []) as Apartment[]
+    })
   })
 }
 
@@ -26,15 +33,29 @@ export const useCreateOrder = () => {
 export const useOrders = (storeId?: number) => {
   return useQuery({
     queryKey: ['orders', storeId],
-    queryFn: () => orderService.getOrders(storeId)
+    queryFn: async () => {
+      const result = await orderService.getOrders(storeId)
+      return result
+    },
+    select: (data) => ({
+      ...data,
+      data: (data?.data || []) as OrderView[]
+    })
   })
 }
 
 export const useOrderDetails = (orderId: number) => {
   return useQuery({
     queryKey: ['order-details', orderId],
-    queryFn: () => orderService.getOrderDetails(orderId),
-    enabled: !!orderId
+    queryFn: async () => {
+      const result = await orderService.getOrderDetails(orderId)
+      return result
+    },
+    enabled: !!orderId,
+    select: (data) => ({
+      ...data,
+      data: (data?.data || []) as OrderDetail[]
+    })
   })
 }
 

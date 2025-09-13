@@ -67,11 +67,24 @@ export const useAuth = () => {
   }, [setUser, setLoading])
 
   const logout = useCallback(async () => {
+    console.log('🚪 useAuth.logout() 호출됨')
     setLoading(true)
     try {
+      // 1. Supabase 로그아웃 시도
       const { error } = await authService.logout()
-      if (!error) setUser(null)
-      return { error }
+      console.log('Supabase 로그아웃 결과:', { error })
+      
+      // 2. 에러 여부와 상관없이 사용자 상태 클리어
+      console.log('사용자 상태 강제 클리어')
+      setUser(null)
+      
+      return { error: error || null }
+    } catch (exception) {
+      console.error('💥 useAuth.logout() 예외:', exception)
+      // 예외 발생 시도 사용자 상태 클리어
+      console.log('예외 발생 - 사용자 상태 강제 클리어')
+      setUser(null)
+      return { error: null } // 로그아웃은 성공으로 처리
     } finally {
       setLoading(false)
     }

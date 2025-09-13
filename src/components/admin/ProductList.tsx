@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
-import { Button, Card, Input, Loading, Modal } from '../common'
+import React, { useState, useCallback, useMemo } from 'react'
+import { Button, Input, Loading, Modal } from '../common'
 import { Product } from '../../types/product'
+import ProductCard from './ProductCard'
 
 interface ProductListProps {
   products: Product[]
@@ -26,23 +27,48 @@ const ProductList: React.FC<ProductListProps> = ({
     productId: null
   })
 
-  const filteredProducts = products?.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const productCategory = product.category || 'today' // 기본값 설정
-    const matchesCategory = categoryFilter === 'all' || productCategory === categoryFilter
-    return matchesSearch && matchesCategory
-  }) || []
+  // 상품 필터링을 useMemo로 최적화
+  const filteredProducts = useMemo(() => {
+    if (!products || products.length === 0) return []
+    
+    return products.filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
+      const productCategory = product.category || 'today'
+      const matchesCategory = categoryFilter === 'all' || productCategory === categoryFilter
+      return matchesSearch && matchesCategory
+    })
+  }, [products, searchTerm, categoryFilter])
 
-  const handleDeleteClick = (productId: number) => {
+  // 삭제 버튼 클릭 처리
+  const handleDeleteClick = useCallback((productId: number) => {
+    console.log('🗑️ 삭제 버튼 클릭:', productId)
     setDeleteModal({ isOpen: true, productId })
-  }
+  }, [])
 
-  const handleDeleteConfirm = () => {
+  // 삭제 확인 처리
+  const handleDeleteConfirm = useCallback(() => {
+    console.log('✅ 삭제 확인:', deleteModal.productId)
     if (deleteModal.productId) {
       onDelete(deleteModal.productId)
       setDeleteModal({ isOpen: false, productId: null })
     }
-  }
+  }, [deleteModal.productId, onDelete])
+
+  // 모달 닫기 처리
+  const handleDeleteModalClose = useCallback(() => {
+    console.log('❌ 삭제 모달 닫기')
+    setDeleteModal({ isOpen: false, productId: null })
+  }, [])
+
+  // 카테고리 필터 변경 처리
+  const handleCategoryChange = useCallback((category: 'all' | 'today' | 'gift') => {
+    setCategoryFilter(category)
+  }, [])
+
+  // 검색어 변경 처리
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value)
+  }, [])
 
   if (isLoading) {
     return <Loading text="상품 목록을 불러오는 중..." />
@@ -57,7 +83,7 @@ const ProductList: React.FC<ProductListProps> = ({
             <Input
               placeholder="상품명으로 검색..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
             />
           </div>
           <Button variant="outline" onClick={onRefresh}>
@@ -70,21 +96,21 @@ const ProductList: React.FC<ProductListProps> = ({
           <Button
             variant={categoryFilter === 'all' ? 'primary' : 'outline'}
             size="sm"
-            onClick={() => setCategoryFilter('all')}
+            onClick={() => handleCategoryChange('all')}
           >
             전체
           </Button>
           <Button
             variant={categoryFilter === 'today' ? 'primary' : 'outline'}
             size="sm"
-            onClick={() => setCategoryFilter('today')}
+            onClick={() => handleCategoryChange('today')}
           >
             🍎 오늘의 과일
           </Button>
           <Button
             variant={categoryFilter === 'gift' ? 'primary' : 'outline'}
             size="sm"
-            onClick={() => setCategoryFilter('gift')}
+            onClick={() => handleCategoryChange('gift')}
           >
             🎁 과일선물
           </Button>
@@ -94,87 +120,13 @@ const ProductList: React.FC<ProductListProps> = ({
       {/* 상품 목록 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredProducts.map((product) => (
-          <Card key={product.id} className={`relative transition-opacity duration-200 ${product.is_soldout ? 'opacity-75' : ''}`}>
-          {/* 상품 이미지 */}
-          <div className="w-full h-48 bg-gray-100 rounded-lg mb-4 overflow-hidden relative">
-          {/* 품절 오버레이 - 이미지 영역에만 적용 */}
-          {product.is_soldout && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center z-10">
-            <span className="bg-red-500 text-white px-3 py-1 rounded-lg font-medium">
-                품절
-                </span>
-              </div>
-            )}
-            
-          {product.image_url ? (
-          <img
-          src={product.image_url}
-          alt={product.name}
-          className="w-full h-full object-cover"
+          <ProductCard
+            key={product.id}
+            product={product}
+            onEdit={onEdit}
+            onDelete={handleDeleteClick}
+            onToggleSoldOut={onToggleSoldOut}
           />
-          ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400">
-          이미지 없음
-          </div>
-          )}
-          </div>
-
-            {/* 상품 정보 */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-start">
-                <h3 className={`font-medium truncate flex-1 ${product.is_soldout ? 'text-gray-500' : 'text-gray-900'}`}>
-                  {product.is_soldout && '🚫 '}{product.name}
-                </h3>
-                {/* 카테고리 배지 */}
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                  (product.category || 'today') === 'gift' 
-                    ? 'bg-purple-100 text-purple-700' 
-                    : 'bg-blue-100 text-blue-700'
-                }`}>
-                  {(product.category || 'today') === 'gift' ? '🎁 선물' : '🍎 오늘'}
-                </span>
-              </div>
-              <p className={`text-lg font-bold ${product.is_soldout ? 'text-gray-400 line-through' : 'text-blue-600'}`}>
-                {product.price.toLocaleString()}원
-                {product.is_soldout && (
-                  <span className="ml-2 text-sm font-medium text-red-500">🚫 품절</span>
-                )}
-              </p>
-              <p className={`text-sm ${product.is_soldout ? 'text-gray-400' : 'text-gray-600'}`}>
-                재고: {product.quantity}개
-              </p>
-            </div>
-
-            {/* 액션 버튼 */}
-            <div className="mt-4 space-y-2">
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onEdit(product)}
-                  className={`flex-1 ${product.is_soldout ? 'opacity-75' : ''}`}
-                >
-                  ✏️ 수정
-                </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => handleDeleteClick(product.id)}
-                  className={`flex-1 ${product.is_soldout ? 'opacity-75' : ''}`}
-                >
-                  🗑️ 삭제
-                </Button>
-              </div>
-              <Button
-                variant={product.is_soldout ? "primary" : "outline"}
-                size="sm"
-                onClick={() => onToggleSoldOut(product.id, !product.is_soldout)}
-                className={`w-full ${product.is_soldout ? 'bg-green-600 hover:bg-green-700 border-green-600 text-white' : 'border-red-300 text-red-700 hover:bg-red-50'}`}
-              >
-                {product.is_soldout ? '✅ 판매재개' : '⏸️ 품절처리'}
-              </Button>
-            </div>
-          </Card>
         ))}
       </div>
 
@@ -187,7 +139,7 @@ const ProductList: React.FC<ProductListProps> = ({
       {/* 삭제 확인 모달 */}
       <Modal
         isOpen={deleteModal.isOpen}
-        onClose={() => setDeleteModal({ isOpen: false, productId: null })}
+        onClose={handleDeleteModalClose}
         title="상품 삭제"
         confirmText="삭제"
         onConfirm={handleDeleteConfirm}

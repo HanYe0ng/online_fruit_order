@@ -1,9 +1,10 @@
 import React from 'react'
 import { Card } from '../common'
 import { ORDER_STATUS } from '../../utils/constants'
+import { OrderView } from '../../types/order'
 
 interface OrderStatsProps {
-  orders: any[]
+  orders: OrderView[]
 }
 
 const OrderStats: React.FC<OrderStatsProps> = ({ orders }) => {

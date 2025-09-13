@@ -4,6 +4,7 @@ import { AdminLayout, OrderCard, OrderStats, OrderFilters } from '../../componen
 import { useOrders } from '../../hooks/useOrder'
 import { useAuth } from '../../hooks/useAuth'
 import { ORDER_STATUS } from '../../utils/constants'
+import { OrderView } from '../../types/order'
 
 const OrderManagePage: React.FC = () => {
   const { user } = useAuth()
@@ -14,7 +15,7 @@ const OrderManagePage: React.FC = () => {
     user?.store_id || undefined
   )
 
-  const orders = ordersResponse?.data || []
+  const orders: OrderView[] = (ordersResponse?.data || []) as OrderView[]
 
   // 필터링된 주문 목록
   const filteredOrders = orders.filter(order => {
@@ -64,22 +65,30 @@ const OrderManagePage: React.FC = () => {
 
   return (
     <AdminLayout>
-      <div className="container mx-auto px-4 py-8">
-      {/* 헤더 */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">주문 관리</h1>
-          <p className="text-gray-600 mt-1">
-            {user?.role === 'admin' ? '전체 주문' : `${user?.store_id}번 점포 주문`} 관리
-            {urgentOrders.length > 0 && (
-              <span className="ml-2 bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
-                🚨 긴급 {urgentOrders.length}건
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="text-sm text-gray-500">
-          자동 새로고침: 30초마다
+
+      {/* 실시간 상태 카드 */}
+      <div className="dalkomne-card p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div 
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)' }}
+            >
+              <span className="text-white text-xl">🔄</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--gray-900)' }}>실시간 주문 현황</h3>
+              <p className="text-sm" style={{ color: 'var(--gray-600)' }}>자동 새로고침: 30초마다</p>
+            </div>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="dalkomne-button-primary flex items-center space-x-2"
+            style={{ fontSize: '14px' }}
+          >
+            <span>🔄</span>
+            <span>수동 새로고침</span>
+          </button>
         </div>
       </div>
 
@@ -96,29 +105,61 @@ const OrderManagePage: React.FC = () => {
       />
 
       {/* 주문 목록 */}
-      {isLoading ? (
-        <Loading text="주문 목록을 불러오는 중..." />
-      ) : (
-        <>
-          {sortedOrders.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {sortedOrders.map((order) => (
-                <OrderCard
-                  key={order.order_id}
-                  order={order}
-                  onRefresh={() => refetch()}
-                />
-              ))}
-            </div>
-          ) : (
-            <Card className="text-center py-12">
-              <p className="text-gray-500">
-                {searchTerm ? '검색 결과가 없습니다.' : '주문이 없습니다.'}
-              </p>
-            </Card>
-          )}
-        </>
-      )}
+      <div className="dalkomne-card p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="text-2xl">📋</div>
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--gray-900)' }}>주문 목록</h3>
+            <p className="text-sm" style={{ color: 'var(--gray-600)' }}>
+              {filteredOrders.length > 0 
+                ? `${filteredOrders.length}건의 주문을 처리해주세요` 
+                : '새로운 주문을 기다리고 있습니다'}
+            </p>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="py-12">
+            <Loading text="주문 목록을 불러오는 중..." />
+          </div>
+        ) : (
+          <>
+            {sortedOrders.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {sortedOrders.map((order) => (
+                  <OrderCard
+                    key={order.order_id}
+                    order={order}
+                    onRefresh={() => refetch()}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div 
+                className="text-center py-16 rounded-lg"
+                style={{ background: 'var(--gray-50)' }}
+              >
+                <div className="text-6xl mb-4">
+                  {searchTerm ? '🔍' : '📋'}
+                </div>
+                <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--gray-900)' }}>
+                  {searchTerm ? '검색 결과가 없습니다' : '주문이 없습니다'}
+                </h3>
+                <p className="mb-6" style={{ color: 'var(--gray-600)' }}>
+                  {searchTerm
+                    ? '다른 검색어를 시도해보세요.'
+                    : '새로운 주문이 들어오면 여기에 표시됩니다!'}
+                </p>
+                <button 
+                  onClick={() => refetch()}
+                  className="dalkomne-button-primary"
+                >
+                  새로고침
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </AdminLayout>
   )

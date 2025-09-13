@@ -73,7 +73,7 @@ export interface Database {
           quantity: number
           image_url: string | null
           is_soldout: boolean
-          category?: string // 옵셔널로 변경
+          category: string // 필수로 변경
           created_at: string
         }
         Insert: {
@@ -84,7 +84,7 @@ export interface Database {
           quantity: number
           image_url?: string | null
           is_soldout?: boolean
-          category?: string
+          category: string
           created_at?: string
         }
         Update: {
@@ -177,6 +177,50 @@ export interface Database {
           created_at?: string
         }
       }
+      gift_product_details: {
+        Row: {
+          id: number
+          product_id: number
+          original_price?: number | null
+          discount_rate?: number | null
+          tags?: string[] | null
+          rating?: number | null
+          review_count?: number | null
+          nutrition_info?: string | null
+          storage_info?: string | null
+          origin?: string | null
+          description_detail?: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          product_id: number
+          original_price?: number | null
+          discount_rate?: number | null
+          tags?: string[] | null
+          rating?: number | null
+          review_count?: number | null
+          nutrition_info?: string | null
+          storage_info?: string | null
+          origin?: string | null
+          description_detail?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          product_id?: number
+          original_price?: number | null
+          discount_rate?: number | null
+          tags?: string[] | null
+          rating?: number | null
+          review_count?: number | null
+          nutrition_info?: string | null
+          storage_info?: string | null
+          origin?: string | null
+          description_detail?: string | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       order_view: {
@@ -190,6 +234,28 @@ export interface Database {
           customer_phone: string | null
           is_paid: boolean
           status: string
+          created_at: string
+        }
+      }
+      gift_products_view: {
+        Row: {
+          id: number
+          store_id: number
+          store_name: string
+          name: string
+          price: number
+          original_price?: number | null
+          discount_rate?: number | null
+          quantity: number
+          image_url: string | null
+          is_soldout: boolean
+          tags?: string[] | null
+          rating?: number | null
+          review_count?: number | null
+          nutrition_info?: string | null
+          storage_info?: string | null
+          origin?: string | null
+          description_detail?: string | null
           created_at: string
         }
       }

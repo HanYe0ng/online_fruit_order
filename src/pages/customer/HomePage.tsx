@@ -8,29 +8,13 @@ import { ROUTES } from '../../utils/constants'
 import { supabase } from '../../services/supabase'
 import { updatePageTitle, updatePageDescription, PAGE_TITLES, PAGE_DESCRIPTIONS } from '../../utils/pageTitle'
 import type { Product as UiProduct } from '../../types/product'
-
-type Store = {
-  id: number
-  name: string
-  location: string | null
-}
-
-type DbProduct = {
-  id: number
-  store_id: number
-  name: string
-  price: number | null
-  quantity: number
-  image_url: string | null
-  is_soldout: boolean
-  category?: string
-  created_at: string
-}
+import type { Store } from '../../types/store'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 const HomePage: React.FC = () => {
   const [stores, setStores] = useState<Store[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null)
-  const [products, setProducts] = useState<DbProduct[]>([])
+  const [products, setProducts] = useState<UiProduct[]>([])
   const [selectedCategory, setSelectedCategory] = useState<'today' | 'gift'>('today')
   const [logoError, setLogoError] = useState(false)
   const [isLoadingStores, setIsLoadingStores] = useState<boolean>(true)
@@ -48,9 +32,11 @@ const HomePage: React.FC = () => {
       console.error('[stores.fetch] error:', error)
       setStores([])
     } else {
-      setStores((data || []) as Store[])
-      if (!selectedStoreId && data && data.length > 0) {
-        setSelectedStoreId(data[0].id)
+      const storesData = (data as Store[] | null) || []
+      setStores(storesData)
+      if (!selectedStoreId && storesData.length > 0) {
+        const firstStore = storesData[0] as Store
+        setSelectedStoreId(firstStore.id)
       }
     }
     setIsLoadingStores(false)
@@ -69,7 +55,8 @@ const HomePage: React.FC = () => {
       setProducts([])
     } else {
       console.log('[products.fetch] data:', data)
-      setProducts((data || []) as DbProduct[])
+      const productsData = (data as UiProduct[] | null) || []
+      setProducts(productsData)
     }
     setIsLoadingProducts(false)
   }, [])
@@ -94,25 +81,25 @@ const HomePage: React.FC = () => {
           table: 'products',
           filter: `store_id=eq.${selectedStoreId}`
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<UiProduct>) => {
           if (!isMounted) return
           setProducts((prev) => {
             const next = [...prev]
             switch (payload.eventType) {
               case 'INSERT': {
-                const row = payload.new as DbProduct
+                const row = payload.new as UiProduct
                 if (!next.find((p) => p.id === row.id)) next.unshift(row)
                 return next
               }
               case 'UPDATE': {
-                const row = payload.new as DbProduct
+                const row = payload.new as UiProduct
                 const idx = next.findIndex((p) => p.id === row.id)
                 if (idx !== -1) next[idx] = { ...next[idx], ...row }
                 else next.unshift(row)
                 return next
               }
               case 'DELETE': {
-                const row = payload.old as DbProduct
+                const row = payload.old as UiProduct
                 return next.filter((p) => p.id !== row.id)
               }
               default:
@@ -129,13 +116,13 @@ const HomePage: React.FC = () => {
     }
   }, [selectedStoreId, fetchProducts])
 
-  const availableDbProducts = useMemo(
+  const availableProducts = useMemo(
     () => products.filter((p) => !p.is_soldout && p.quantity > 0),
     [products]
   )
 
   const filteredProducts = useMemo(() => {
-    return availableDbProducts.filter(p => {
+    return availableProducts.filter(p => {
       // category 필드가 있으면 그것을 우선 사용
       if ('category' in p && p.category) {
         return p.category === selectedCategory
@@ -151,26 +138,17 @@ const HomePage: React.FC = () => {
              !p.name.toLowerCase().includes('기프트') &&
              !p.name.toLowerCase().includes('gift')
     })
-  }, [availableDbProducts, selectedCategory])
+  }, [availableProducts, selectedCategory])
 
   const availableUiProducts: UiProduct[] = useMemo(
-    () =>
-      filteredProducts.map((p) => ({
-        id: p.id,
-        store_id: p.store_id,
-        name: p.name,
-        price: p.price ?? 0,
-        quantity: p.quantity,
-        image_url: p.image_url ?? '',
-        is_soldout: p.is_soldout,
-        category: (p.category as 'today' | 'gift') || 'today',
-        created_at: p.created_at,
-      })),
+    () => filteredProducts,
     [filteredProducts]
   )
 
-  const currentStoreName =
-    stores.find((s) => s.id === selectedStoreId)?.name ?? '점포 선택'
+  const currentStoreName = useMemo(() => {
+    const foundStore = (stores as Store[]).find((s: Store) => s.id === selectedStoreId)
+    return foundStore?.name ?? '점포 선택'
+  }, [stores, selectedStoreId])
 
   // 페이지 제목 설정
   useEffect(() => {
@@ -264,7 +242,7 @@ const HomePage: React.FC = () => {
             <Loading text="매장을 불러오는 중..." />
           ) : stores.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {stores.map((store) => (
+              {(stores as Store[]).map((store: Store) => (
                 <button
                   key={store.id}
                   onClick={() => setSelectedStoreId(store.id)}
@@ -398,12 +376,14 @@ const HomePage: React.FC = () => {
                 }
               </p>
               {selectedStoreId && (
-                <button 
-                  onClick={() => fetchProducts(selectedStoreId)}
-                  className="dalkomne-button-primary"
-                >
-                  새로고침
-                </button>
+                <div className="flex justify-center">
+                  <button 
+                    onClick={() => fetchProducts(selectedStoreId)}
+                    className="dalkomne-button-primary"
+                  >
+                    새로고침
+                  </button>
+                </div>
               )}
             </div>
           )}

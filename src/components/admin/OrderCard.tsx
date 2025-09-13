@@ -2,19 +2,7 @@ import React, { useState } from 'react'
 import { Button, Card, Modal } from '../common'
 import { useOrderDetails, useUpdateOrderStatus } from '../../hooks/useOrder'
 import { ORDER_STATUS } from '../../utils/constants'
-
-interface OrderView {
-  order_id: number
-  store_id: number
-  apartment_name: string
-  apartment_dong: string
-  apartment_ho: string
-  customer_name: string | null
-  customer_phone: string | null
-  is_paid: boolean
-  status: string
-  created_at: string
-}
+import { OrderView, OrderDetail } from '../../types/order'
 
 interface OrderCardProps {
   order: OrderView
@@ -26,7 +14,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onRefresh }) => {
   const { data: orderDetailsResponse } = useOrderDetails(order.order_id)
   const updateOrderStatus = useUpdateOrderStatus()
 
-  const orderDetails = orderDetailsResponse?.data || []
+  const orderDetails: OrderDetail[] = (orderDetailsResponse?.data || []) as OrderDetail[]
 
   // 총 금액 계산
   const totalAmount = orderDetails.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)

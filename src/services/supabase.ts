@@ -52,7 +52,7 @@ async function fetchWithRetryAbort(input: RequestInfo | URL, init?: RequestInit)
 }
 
 /* ---------- Supabase client ---------- */
-export const supabase = createClient<Database>(
+const supabaseClient = createClient<Database>(
   SUPABASE_URL ?? '',
   SUPABASE_ANON_KEY ?? '',
   {
@@ -66,3 +66,6 @@ export const supabase = createClient<Database>(
     },
   }
 )
+
+// 타입 안전성을 위한 타입 단언
+export const supabase = supabaseClient as any

@@ -1,19 +1,11 @@
-export interface Product {
-  id: number
-  store_id: number
-  name: string
-  price: number
-  quantity: number
-  image_url: string | null
-  // 인앱브라우저용 Base64 이미지 필드 추가
-  image_base64?: string | null
-  image_mime_type?: string | null
-  image_original_name?: string | null
-  is_soldout: boolean
-  category?: 'today' | 'gift' // 옵셔널로 변경 (하위 호환성)
-  created_at: string
-}
+import { Database } from './database'
 
+// Supabase 자동 생성 타입 사용
+export type Product = Database['public']['Tables']['products']['Row']
+export type ProductInsert = Database['public']['Tables']['products']['Insert']
+export type ProductUpdate = Database['public']['Tables']['products']['Update']
+
+// 커스텀 타입들 (비즈니스 로직용)
 export interface ProductFormData {
   name: string
   price: number

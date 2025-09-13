@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { DashboardStats, OrderTrend, PopularProduct, RecentOrder } from '../types/dashboard'
+import { OrderView, Product } from '../types/order'
 
 export const dashboardService = {
   // 대시보드 통계 조회
@@ -32,16 +33,19 @@ export const dashboardService = {
       }
 
       // 통계 계산
-      const todayOrders = orders?.filter(o => o.created_at.startsWith(today)) || []
-      const completedOrders = orders?.filter(o => o.status === '완료') || []
+      const ordersData = (orders || []) as OrderView[]
+      const productsData = (products || []) as Product[]
+      
+      const todayOrders = ordersData.filter(o => o.created_at.startsWith(today))
+      const completedOrders = ordersData.filter(o => o.status === '완료')
       
       const stats: DashboardStats = {
         todayOrders: todayOrders.length,
         todayRevenue: todayOrders.length * 15000, // 임시 평균 주문 금액
-        totalOrders: orders?.length || 0,
+        totalOrders: ordersData.length,
         totalRevenue: completedOrders.length * 15000, // 임시 계산
-        activeProducts: products?.filter(p => !p.is_soldout && p.quantity > 0).length || 0,
-        lowStockProducts: products?.filter(p => p.quantity <= 5 && p.quantity > 0).length || 0
+        activeProducts: productsData.filter(p => !p.is_soldout && p.quantity > 0).length,
+        lowStockProducts: productsData.filter(p => p.quantity <= 5 && p.quantity > 0).length
       }
 
       return { data: stats, error: null }
@@ -72,13 +76,14 @@ export const dashboardService = {
       }
 
       // 날짜별 그룹화
+      const ordersData = (orders || []) as OrderView[]
       const trends: OrderTrend[] = []
       for (let i = 6; i >= 0; i--) {
         const date = new Date()
         date.setDate(date.getDate() - i)
         const dateString = date.toISOString().split('T')[0]
         
-        const dayOrders = orders?.filter(o => o.created_at.startsWith(dateString)) || []
+        const dayOrders = ordersData.filter(o => o.created_at.startsWith(dateString))
         
         trends.push({
           date: date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }),
@@ -108,13 +113,14 @@ export const dashboardService = {
         return { data: null, error: error.message }
       }
 
-      const popularProducts: PopularProduct[] = products?.map((product, index) => ({
+      const productsData = (products || []) as Product[]
+      const popularProducts: PopularProduct[] = productsData.map((product, index) => ({
         id: product.id,
         name: product.name,
         image_url: product.image_url,
         orderCount: Math.floor(Math.random() * 50) + 10, // 임시 데이터
         revenue: (Math.floor(Math.random() * 50) + 10) * product.price
-      })).sort((a, b) => b.orderCount - a.orderCount) || []
+      })).sort((a, b) => b.orderCount - a.orderCount)
 
       return { data: popularProducts, error: null }
     } catch (error) {
@@ -141,14 +147,15 @@ export const dashboardService = {
         return { data: null, error: error.message }
       }
 
-      const recentOrders: RecentOrder[] = orders?.map(order => ({
+      const ordersData = (orders || []) as OrderView[]
+      const recentOrders: RecentOrder[] = ordersData.map(order => ({
         order_id: order.order_id,
-        customer_name: order.customer_name,
+        customer_name: order.customer_name || '익명',
         apartment_name: order.apartment_name,
         total_amount: 15000, // 임시 계산
         status: order.status,
         created_at: order.created_at
-      })) || []
+      }))
 
       return { data: recentOrders, error: null }
     } catch (error) {

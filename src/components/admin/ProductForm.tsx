@@ -73,7 +73,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
           name: initialData.name,
           price: initialData.price,
           quantity: initialData.quantity,
-          category: initialData.category || 'today',
+          category: (initialData.category as 'today' | 'gift') || 'today',
           image: null // 기존 이미지는 새로 업로드하도록 함
         })
         setPreview(initialData.image_url || null)

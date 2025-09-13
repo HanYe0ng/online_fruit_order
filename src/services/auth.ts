@@ -1,5 +1,9 @@
 import { supabase } from './supabase'
 import { User, LoginCredentials } from '../types/auth'
+import { Database } from '../types/database'
+
+// Supabase 프로필 타입
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 // Supabase 클라이언트 상태 확인 함수
 const checkSupabaseClient = () => {
@@ -130,10 +134,11 @@ export const authService = {
       console.log('- profileError 존재:', !!profileError)
       
       if (profile) {
-        console.log('- 프로필 ID:', profile.id)
-        console.log('- 이메일:', profile.email)
-        console.log('- 역할:', profile.role)
-        console.log('- 스토어 ID:', profile.store_id)
+        const profileData = profile as Profile
+        console.log('- 프로필 ID:', profileData.id)
+        console.log('- 이메일:', profileData.email)
+        console.log('- 역할:', profileData.role)
+        console.log('- 스토어 ID:', profileData.store_id)
       }
 
       if (profileError) {
@@ -142,11 +147,12 @@ export const authService = {
         return { user: null, error: '사용자 정보를 가져올 수 없습니다.' }
       }
 
+      const profileData = profile as Profile
       const user: User = {
-        id: profile.id,
-        email: profile.email,
-        role: profile.role,
-        store_id: profile.store_id
+        id: profileData.id,
+        email: profileData.email,
+        role: profileData.role as 'admin' | 'manager',
+        store_id: profileData.store_id || undefined
       }
 
       console.log('🎉 로그인 전체 프로세스 성공!')
@@ -238,11 +244,12 @@ export const authService = {
         return { user: null, error: '사용자 정보를 가져올 수 없습니다.' }
       }
 
+      const profileData = profile as Profile
       const currentUser: User = {
-        id: profile.id,
-        email: profile.email,
-        role: profile.role,
-        store_id: profile.store_id
+        id: profileData.id,
+        email: profileData.email,
+        role: profileData.role as 'admin' | 'manager',
+        store_id: profileData.store_id || undefined
       }
 
       console.log('✅ 현재 사용자 조회 성공')
@@ -284,13 +291,13 @@ export const authService = {
       console.log('📋 프로필 생성 시작...')
       
       // 프로필 생성
-      const { error: profileError } = await supabase
+      const { error: profileError } = await (supabase as any)
         .from('profiles')
         .insert([{
           id: data.user.id,
           email: credentials.email,
           role: credentials.role,
-          store_id: credentials.store_id
+          store_id: credentials.store_id || null
         }])
 
       console.log('📋 프로필 생성 완료:', { hasError: !!profileError })
