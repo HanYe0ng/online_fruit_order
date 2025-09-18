@@ -27,13 +27,15 @@ export const checkCartItemsStock = async (cartItems: Array<{
         throw new Error(`상품 정보 조회 실패: ${error.message}`)
       }
       
+      const productData = product as any
+      
       return {
         productId: item.product.id,
-        productName: product.name,
+        productName: productData.name,
         requestedQuantity: item.quantity,
-        availableQuantity: product.quantity,
-        isSoldout: product.is_soldout,
-        isAvailable: !product.is_soldout && product.quantity >= item.quantity
+        availableQuantity: productData.quantity,
+        isSoldout: productData.is_soldout,
+        isAvailable: !productData.is_soldout && productData.quantity >= item.quantity
       }
     })
 

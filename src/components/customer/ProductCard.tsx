@@ -106,20 +106,52 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           </h3>
           
           {/* 가격 */}
-          <p 
-            className="text-base sm:text-lg font-bold"
-            style={{ color: 'var(--dalkomne-orange)' }}
-          >
-            {product.price.toLocaleString()}원
-          </p>
+          <div className="space-y-1">
+            {product.discount_price ? (
+              // 할인가가 있는 경우
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <p 
+                    className="text-base sm:text-lg font-bold"
+                    style={{ color: 'var(--dalkomne-orange)' }}
+                  >
+                    {product.discount_price.toLocaleString()}원
+                  </p>
+                  <span 
+                    className="px-2 py-1 rounded text-xs font-bold"
+                    style={{ 
+                      background: 'var(--error)', 
+                      color: 'var(--white)' 
+                    }}
+                  >
+                    {product.discount_rate ? `${product.discount_rate}%` : 'SALE'}
+                  </span>
+                </div>
+                <p 
+                  className="text-sm line-through"
+                  style={{ color: 'var(--gray-500)' }}
+                >
+                  {product.price.toLocaleString()}원
+                </p>
+              </div>
+            ) : (
+              // 일반 가격
+              <p 
+                className="text-base sm:text-lg font-bold"
+                style={{ color: 'var(--dalkomne-orange)' }}
+              >
+                {product.price.toLocaleString()}원
+              </p>
+            )}
+          </div>
           
-          {/* 재고 정보 */}
+          {/* 재고 정보
           <p 
             className="text-xs sm:text-sm"
             style={{ color: 'var(--gray-600)' }}
           >
             재고: {product.quantity}개
-          </p>
+          </p> */}
         </div>
 
         {/* 주문 버튼 */}

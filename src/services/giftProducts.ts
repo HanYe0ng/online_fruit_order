@@ -11,11 +11,13 @@ export interface DbGiftProduct {
   store_name: string
   name: string
   price: number
+  discount_price?: number | null
   original_price?: number
   discount_rate?: number
   quantity: number
   image_url: string | null
   is_soldout: boolean
+  display_order: number
   tags?: string[]
   rating?: number
   review_count?: number
@@ -86,6 +88,7 @@ export interface CreateGiftProductData {
   store_id: number
   name: string
   price: number
+  discount_price?: number
   quantity: number
   image_url?: string
   original_price?: number
@@ -106,6 +109,7 @@ export const createGiftProduct = async (productData: CreateGiftProductData): Pro
       store_id: productData.store_id,
       name: productData.name,
       price: productData.price,
+      discount_price: productData.discount_price,
       quantity: productData.quantity,
       image_url: productData.image_url,
       is_soldout: false,
@@ -167,6 +171,7 @@ export const updateGiftProduct = async (productId: number, productData: Partial<
     const basicFields = {
       name: productData.name,
       price: productData.price,
+      discount_price: productData.discount_price,
       quantity: productData.quantity,
       image_url: productData.image_url
     }
@@ -274,6 +279,9 @@ export const convertDbGiftProductToGiftProduct = (dbProduct: DbGiftProduct): imp
     store_id: dbProduct.store_id,
     name: dbProduct.name,
     price: dbProduct.price,
+    discount_price: dbProduct.discount_price || null,
+    discount_rate: dbProduct.discount_rate || null,
+    display_order: dbProduct.display_order,
     quantity: dbProduct.quantity,
     image_url: dbProduct.image_url,
     is_soldout: dbProduct.is_soldout,

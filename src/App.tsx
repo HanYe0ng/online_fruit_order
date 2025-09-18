@@ -25,17 +25,26 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error: any) => {
+        console.log(`🔄 Query 재시도 (${failureCount}/3):`, error?.message)
         // 네트워크 에러는 3번, 기타 에러는 1번만 재시도
-        if (error?.message?.includes('Network')) {
+        if (error?.message?.includes('Network') || error?.message?.includes('fetch')) {
           return failureCount < 3
         }
         return failureCount < 1
       },
-      staleTime: 5 * 60 * 1000, // 5분
-      refetchOnWindowFocus: false, // 창 포커스 시 자동 refetch 비활성화
+      retryDelay: (attemptIndex) => {
+        // 지수적 지연: 1s, 2s, 4s
+        return Math.min(1000 * (2 ** attemptIndex), 10000)
+      },
+      staleTime: 30 * 1000, // 30초
+      gcTime: 5 * 60 * 1000, // 5분 동안 캐시 유지
+      refetchOnWindowFocus: true, // 창 포커스 시 자동 refetch
+      refetchOnReconnect: true, // 네트워크 재연결 시 refetch
+      networkMode: 'online', // 온라인일 때만 쿼리 실행
     },
     mutations: {
       retry: false, // 뮤테이션은 재시도하지 않음
+      networkMode: 'online',
     }
   },
 })

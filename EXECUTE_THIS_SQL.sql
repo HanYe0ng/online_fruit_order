@@ -139,7 +139,31 @@ CREATE INDEX IF NOT EXISTS products_category_idx ON public.products(category);
 CREATE INDEX IF NOT EXISTS products_store_category_idx ON public.products(store_id, category);
 CREATE INDEX IF NOT EXISTS gift_product_details_product_id_idx ON public.gift_product_details(product_id);
 
--- 8. 확인
+-- 8. display_order 컬럼 추가 (순서 관리용)
+DO $
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'products' AND column_name = 'display_order') THEN
+        ALTER TABLE public.products 
+        ADD COLUMN display_order integer DEFAULT 0;
+        
+        -- 컬럼에 주석 추가
+        COMMENT ON COLUMN public.products.display_order IS '상품 표시 순서 (낮은 숫자가 우선)';
+        
+        -- 인덱스 추가 (성능 최적화)
+        CREATE INDEX idx_products_display_order ON public.products(store_id, display_order);
+        
+        -- 기존 상품들에 기본 순서 설정 (생성일 기준)
+        UPDATE public.products 
+        SET display_order = (
+          SELECT ROW_NUMBER() OVER (PARTITION BY store_id ORDER BY created_at DESC)
+          FROM (SELECT id, store_id, created_at FROM public.products) AS p
+          WHERE p.id = products.id
+        );
+    END IF;
+END $;
+
+-- 9. 확인
 SELECT 
     'stores' as table_name,
     name as category,

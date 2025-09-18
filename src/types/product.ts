@@ -9,6 +9,8 @@ export type ProductUpdate = Database['public']['Tables']['products']['Update']
 export interface ProductFormData {
   name: string
   price: number
+  discount_price?: number | null
+  discount_rate?: number | null
   quantity: number
   category: 'today' | 'gift'
   image?: File | null

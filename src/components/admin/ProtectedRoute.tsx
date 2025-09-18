@@ -1,49 +1,45 @@
 // src/components/admin/ProtectedRoute.tsx
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { Loading } from '../common'
 import { ROUTES } from '../../utils/constants'
-import { supabase } from '../../services/supabase'
+import { useAuth } from '../../hooks/useAuth'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const [isLoading, setIsLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const { isLoading, isAuthenticated, user } = useAuth()
   const location = useLocation()
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        console.log('ProtectedRoute 인증 확인:', !!session)
-        
-        if (session?.user) {
-          setIsAuthenticated(true)
-        } else {
-          setIsAuthenticated(false)
-        }
-      } catch (error) {
-        console.error('인증 확인 중 오류:', error)
-        setIsAuthenticated(false)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  console.log('🛡️ ProtectedRoute 상태 확인:', {
+    isLoading,
+    isAuthenticated,
+    hasUser: !!user,
+    userRole: user?.role,
+    currentPath: location.pathname
+  })
 
-    checkAuth()
-  }, [])
-
+  // 로딩 중일 때
   if (isLoading) {
+    console.log('⏳ 인증 상태 로딩 중...')
     return <Loading fullScreen text="인증 확인 중..." />
   }
 
-  if (!isAuthenticated) {
+  // 인증되지 않은 경우
+  if (!isAuthenticated || !user) {
+    console.log('🚫 인증되지 않음 - 로그인 페이지로 리다이렉트')
     return <Navigate to={ROUTES.ADMIN_LOGIN} replace state={{ from: location }} />
   }
 
+  // 관리자 권한 확인
+  if (user.role !== 'admin' && user.role !== 'manager') {
+    console.log('🚫 관리자 권한 없음:', user.role)
+    return <Navigate to={ROUTES.ADMIN_LOGIN} replace />
+  }
+
+  console.log('✅ 인증 및 권한 확인 완료 - 보호된 컴포넌트 렌더링')
   return <>{children}</>
 }
 

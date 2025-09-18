@@ -10,62 +10,73 @@ class MemoryStorage implements StorageLike {
   setItem(k: string, v: string) { this.m.set(k, v) }
   removeItem(k: string) { this.m.delete(k) }
 }
+
 function safeStorage(): StorageLike {
   if (typeof window === 'undefined') return new MemoryStorage()
-  try { localStorage.setItem('__p','1'); localStorage.removeItem('__p'); return localStorage } catch {}
-  try { sessionStorage.setItem('__p','1'); sessionStorage.removeItem('__p'); return sessionStorage } catch {}
+  try { 
+    localStorage.setItem('__test','1')
+    localStorage.removeItem('__test')
+    return localStorage 
+  } catch {}
+  try { 
+    sessionStorage.setItem('__test','1')
+    sessionStorage.removeItem('__test')
+    return sessionStorage 
+  } catch {}
   return new MemoryStorage()
 }
 
-/* ---------- CRA 환경변수(정확한 치환 패턴) ---------- */
+/* ---------- 환경변수 확인 ---------- */
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL as string | undefined
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY as string | undefined
+
+console.log('🔧 Supabase 환경변수 확인:', {
+  hasUrl: !!SUPABASE_URL,
+  hasKey: !!SUPABASE_ANON_KEY,
+  url: SUPABASE_URL?.substring(0, 30) + '...' // 보안을 위해 일부만 표시
+})
+
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  // eslint-disable-next-line no-console
-  console.warn('[Supabase] ENV 누락: REACT_APP_SUPABASE_URL / REACT_APP_SUPABASE_ANON_KEY')
+  console.error('❌ Supabase 환경변수 누락!')
+  console.error('- REACT_APP_SUPABASE_URL:', !!SUPABASE_URL)
+  console.error('- REACT_APP_SUPABASE_ANON_KEY:', !!SUPABASE_ANON_KEY)
 }
 
-/* ---------- Abort 기반 타임아웃 fetch ---------- */
-function abortableFetch(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 15000) {
-  const nativeFetch = (globalThis as any)._nativeFetch ?? fetch
-  const ac = new AbortController()
-  const timer = setTimeout(() => {
-    // Abort 발생 → 실제 네트워크 커넥션도 해제
-    ac.abort(new Error('timeout'))
-  }, timeoutMs)
-
-  return nativeFetch(input as any, { ...init, signal: ac.signal })
-    .finally(() => clearTimeout(timer))
-}
-
-/** timeout/Abort일 때에만 1회 재시도 */
-async function fetchWithRetryAbort(input: RequestInfo | URL, init?: RequestInit) {
-  try {
-    return await abortableFetch(input, init, 15000)
-  } catch (e: any) {
-    if (e?.name === 'AbortError' || e?.message === 'timeout') {
-      // 네트워크 일시 hiccup 대응: 1회만 재시도
-      return abortableFetch(input, init, 15000)
-    }
-    throw e
-  }
-}
-
-/* ---------- Supabase client ---------- */
+/* ---------- 단순화된 Supabase client ---------- */
 const supabaseClient = createClient<Database>(
   SUPABASE_URL ?? '',
   SUPABASE_ANON_KEY ?? '',
   {
-    // ✅ Abort되는 fetch로 교체 (무한 pending/커넥션 고갈 방지)
-    global: { fetch: fetchWithRetryAbort },
+    // 커스텀 fetch 제거 - 기본 fetch 사용
     auth: {
       storage: safeStorage(),
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false,
+      // 실시간 구독 비활성화
+      storageKey: 'fruit-store-auth'
     },
+    db: {
+      schema: 'public',
+    },
+    // realtime 설정 제거 (WebSocket 연결 문제 방지)
   }
 )
 
-// 타입 안전성을 위한 타입 단언
+console.log('✅ Supabase 클라이언트 생성 완료')
+
+// 연결 테스트
+supabaseClient.auth.getSession()
+  .then(({ data, error }) => {
+    console.log('🔍 초기 세션 확인 결과:', { 
+      hasSession: !!data.session, 
+      hasError: !!error,
+      errorMessage: error?.message 
+    })
+  })
+  .catch(err => {
+    console.error('❌ 초기 세션 확인 실패:', err)
+  })
+
+// 타입 문제 해결을 위한 강력한 타입 단언
 export const supabase = supabaseClient as any

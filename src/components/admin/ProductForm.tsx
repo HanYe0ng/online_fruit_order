@@ -45,15 +45,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const [isCameraOpen, setIsCameraOpen] = useState(false) // 카메라 모달 상태
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    setBrowserInfo(detectInAppBrowser())
-    const settings = getInAppOptimizationSettings()
-    
-    if (process.env.NODE_ENV === 'development') {
-      quickConnectionTest()
-    }
-  }, [browserInfo.browser, browserInfo.needsSpecialHandling, browserInfo.isInApp])
-
   // 모달이 열릴 때마다 폼 데이터 초기화
   useEffect(() => {
     if (isOpen) {

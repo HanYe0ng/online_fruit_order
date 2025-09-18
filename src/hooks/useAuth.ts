@@ -3,94 +3,130 @@ import { useAuthStore } from '../stores/authStore'
 import { authService } from '../services/auth'
 import { supabase } from '../services/supabase'
 
+let isInitialized = false // 전역 플래그로 중복 실행 방지
+let initPromise: Promise<void> | null = null // 초기화 Promise 캐싱
+let hookCallCount = 0 // 훅 호출 횟수 추적
+
 export const useAuth = () => {
-  const { user, isLoading, isAuthenticated, setUser, setLoading } = useAuthStore()
+  const { user, isLoading, isAuthenticated } = useAuthStore()
+  
+  // 훅 호출 시마다 카운트 증가
+  hookCallCount++
+  const currentCallId = hookCallCount
 
-  // 프로필 로더
-  const loadProfile = useCallback(async (uid: string) => {
-    try {
-      const { user: current, error } = await authService.getCurrentUser()
-      if (error) {
-        setUser(null)
-      } else {
-        setUser(current)
-      }
-    } catch {
-      setUser(null)
-    }
-  }, [setUser])
-
-  useEffect(() => {
-    let alive = true
-    setLoading(true)
-
-    // 1) 현재 세션 한 번 확인
-    supabase.auth.getUser()
-      .then(({ data }) => {
-        if (!alive) return
-        if (data?.user?.id) return loadProfile(data.user.id)
-        setUser(null)
-      })
-      .finally(() => { if (alive) setLoading(false) })
-
-    // 2) 이후 변화는 이벤트로 수신
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!alive) return
-      setLoading(true)
+  /**
+   * 로그인
+   */
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const store = useAuthStore.getState()
+      store.setLoading(true)
       try {
-        if (session?.user?.id) {
-          await loadProfile(session.user.id)
-        } else {
-          setUser(null)
-        }
+        const { user, error } = await authService.login({ email, password })
+        if (!error) store.setUser(user)
+        return { user, error }
       } finally {
-        if (alive) setLoading(false)
+        store.setLoading(false)
       }
-    })
+    },
+    []
+  )
+
+  /**
+   * 로그아웃
+   */
+  const logout = useCallback(
+    async () => {
+      const store = useAuthStore.getState()
+      store.setLoading(true)
+      try {
+        const { error } = await authService.logout()
+        store.setUser(null)
+        return { error }
+      } finally {
+        store.setLoading(false)
+      }
+    },
+    []
+  )
+
+  /**
+   * 초기화 - 첫 번째 훅에서만 실행
+   */
+  useEffect(() => {
+    // 첫 번째 훅에서만 로그 출력
+    if (currentCallId === 1) {
+      console.log('🔍 useAuth 첫 번째 호출 - 초기화 진행')
+    } else {
+      console.log(`🔍 useAuth ${currentCallId}번째 호출 - 초기화 스킵`)
+    }
+    
+    if (isInitialized) {
+      return
+    }
+
+    if (initPromise) {
+      return
+    }
+
+    console.log('🚀 useAuth 초기화 시작')
+    isInitialized = true
+
+    initPromise = (async () => {
+      const store = useAuthStore.getState()
+      
+      try {
+        store.setLoading(true)
+        console.log('세션 확인 중...')
+        
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('세션 확인 오류:', error)
+          store.setUser(null)
+        } else if (session?.user) {
+          console.log('세션 발견, 프로필 로드 중...')
+          const { user: current, error: profileError } = await authService.getCurrentUser()
+          
+          if (profileError) {
+            console.error('프로필 로드 실패:', profileError)
+            store.setUser(null)
+          } else {
+            console.log('프로필 로드 성공:', current?.email)
+            store.setUser(current)
+          }
+        } else {
+          console.log('세션 없음')
+          store.setUser(null)
+        }
+      } catch (error) {
+        console.error('인증 초기화 오류:', error)
+        store.setUser(null)
+      } finally {
+        console.log('✅ 인증 초기화 완료')
+        store.setLoading(false)
+      }
+    })()
 
     return () => {
-      alive = false
-      sub?.subscription?.unsubscribe?.()
+      if (currentCallId === 1) {
+        console.log('🧹 useAuth 첫 번째 훅 정리됨')
+      }
     }
-  }, [setLoading, setUser, loadProfile])
+  }, [currentCallId]) // currentCallId를 의존성에 추가하여 각 훅별로 추적
 
-  // 실제 로그인/로그아웃도 스토어에 반영
-  const login = useCallback(async (email: string, password: string) => {
-    setLoading(true)
-    try {
-      const { user, error } = await authService.login({ email, password })
-      if (!error) setUser(user)
-      return { user, error }
-    } finally {
-      setLoading(false)
-    }
-  }, [setUser, setLoading])
+  // 렌더링 로그는 첫 번째 훅에서만 출력
+  if (currentCallId === 1) {
+    console.log('🔄 useAuth 첫 번째 훅 렌더링', { 
+      hasUser: !!user, 
+      isLoading, 
+      isAuthenticated,
+      timestamp: new Date().toISOString().split('T')[1] 
+    })
+  }
 
-  const logout = useCallback(async () => {
-    console.log('🚪 useAuth.logout() 호출됨')
-    setLoading(true)
-    try {
-      // 1. Supabase 로그아웃 시도
-      const { error } = await authService.logout()
-      console.log('Supabase 로그아웃 결과:', { error })
-      
-      // 2. 에러 여부와 상관없이 사용자 상태 클리어
-      console.log('사용자 상태 강제 클리어')
-      setUser(null)
-      
-      return { error: error || null }
-    } catch (exception) {
-      console.error('💥 useAuth.logout() 예외:', exception)
-      // 예외 발생 시도 사용자 상태 클리어
-      console.log('예외 발생 - 사용자 상태 강제 클리어')
-      setUser(null)
-      return { error: null } // 로그아웃은 성공으로 처리
-    } finally {
-      setLoading(false)
-    }
-  }, [setUser, setLoading])
-
-  return useMemo(() => ({
-    user, isLoading, isAuthenticated, login, logout,
-  }), [user, isLoading, isAuthenticated, login, logout])
+  return useMemo(
+    () => ({ user, isLoading, isAuthenticated, login, logout }),
+    [user, isLoading, isAuthenticated, login, logout]
+  )
 }

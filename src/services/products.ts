@@ -4,6 +4,7 @@ import { Product, ProductFormData, ProductFilters } from '../types/product'
 import { detectInAppBrowser } from '../utils/browserDetection'
 import { getInAppOptimizationSettings } from '../utils/inAppOptimization'
 import { shouldBypassStorageUpload, prepareImageForDatabase } from '../utils/inAppImageUtils'
+import { getNextDisplayOrder } from './productOrder'
 
 export const productService = {
   // 상품 목록 조회
@@ -80,13 +81,20 @@ export const productService = {
         }
       }
 
+      // 다음 순서 번호 자동 할당
+      const displayOrder = await getNextDisplayOrder(storeId)
+
       // DB 저장(재시도 없음)
       const insertData: Record<string, any> = {
         store_id: storeId,
         name: productData.name?.trim(),
         price,
+        discount_price: productData.discount_price,
+        discount_rate: productData.discount_rate,
         quantity,
         image_url: imageUrl,
+        display_order: displayOrder,
+        category: productData.category,
       }
       if (imageBase64Data) {
         insertData.image_base64 = imageBase64Data.base64
@@ -94,7 +102,7 @@ export const productService = {
         insertData.image_original_name = imageBase64Data.originalName
       }
 
-      const { data, error } = await supabase.from('products').insert(insertData).select().single()
+      const { data, error } = await (supabase as any).from('products').insert(insertData).select().single()
       if (error) return { data: null, error: `상품 저장 실패: ${error.message}` }
 
       return { data, error: null }
@@ -121,11 +129,14 @@ export const productService = {
         if (!Number.isFinite(price)) return { data: null, error: '가격이 올바르지 않습니다.' }
         updateData.price = price
       }
+      if (productData.discount_price !== undefined) updateData.discount_price = productData.discount_price
+      if (productData.discount_rate !== undefined) updateData.discount_rate = productData.discount_rate
       if (productData.quantity !== undefined) {
         const quantity = Number(productData.quantity)
         if (!Number.isFinite(quantity)) return { data: null, error: '수량이 올바르지 않습니다.' }
         updateData.quantity = quantity
       }
+      if (productData.category !== undefined) updateData.category = productData.category
 
       // 새 이미지 업로드(필요 시)
       if (productData.image) {
@@ -154,7 +165,7 @@ export const productService = {
         updateData.image_url = pub.publicUrl
       }
 
-      const { data, error } = await supabase.from('products').update(updateData).eq('id', id).select().single()
+      const { data, error } = await (supabase as any).from('products').update(updateData).eq('id', id).select().single()
       if (error) return { data: null, error: `상품 수정 실패: ${error.message}` }
 
       return { data, error: null }
@@ -197,7 +208,7 @@ export const productService = {
   // 품절 상태 토글
   async toggleSoldOut(id: number, isSoldOut: boolean): Promise<{ error: string | null }> {
     try {
-      const res = await supabase.from('products').update({ is_soldout: isSoldOut }).eq('id', id)
+      const res = await (supabase as any).from('products').update({ is_soldout: isSoldOut }).eq('id', id)
       if (res.error) return { error: `상품 상태 변경 실패: ${res.error.message}` }
       return { error: null }
     } catch (error) {

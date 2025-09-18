@@ -152,12 +152,16 @@ export const useCartStore = create<CartStore>()(
       clearCart: () => set({ items: [], giftItems: [], selectedStoreId: null }),
 
       getTotalPrice: () => {
-        const regularTotal = get().items.reduce((total, item) => 
-          total + (item.product.price * item.quantity), 0
-        )
-        const giftTotal = get().giftItems.reduce((total, item) => 
-          total + (item.product.price * item.quantity), 0
-        )
+        const regularTotal = get().items.reduce((total, item) => {
+          // 할인가가 있으면 할인가를, 없으면 원가를 사용
+          const price = item.product.discount_price || item.product.price
+          return total + (price * item.quantity)
+        }, 0)
+        const giftTotal = get().giftItems.reduce((total, item) => {
+          // 선물 상품도 할인가 고려
+          const price = item.product.discount_price || item.product.price
+          return total + (price * item.quantity)
+        }, 0)
         return regularTotal + giftTotal
       },
 

@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Loading } from '../../components/common'
-import { ProductCard } from '../../components/customer'
+import { ProductCard, OrderBar } from '../../components/customer'
 import GiftProductCard from '../../components/customer/GiftProductCard'
 import { useCartStore } from '../../stores/cartStore'
 import { ROUTES } from '../../utils/constants'
-import { supabase } from '../../services/supabase'
+import { directSupabaseCall } from '../../services/directSupabase'
 import { updatePageTitle, updatePageDescription, PAGE_TITLES, PAGE_DESCRIPTIONS } from '../../utils/pageTitle'
 import type { Product as UiProduct } from '../../types/product'
 import type { Store } from '../../types/store'
@@ -22,48 +22,76 @@ const HomePage: React.FC = () => {
   const { getTotalItems } = useCartStore()
 
   const fetchStores = useCallback(async () => {
+    console.log('🏪 === fetchStores START (Direct Fetch) ===')
+    console.log('Supabase URL:', process.env.REACT_APP_SUPABASE_URL)
+    console.log('Supabase Key exists:', !!process.env.REACT_APP_SUPABASE_ANON_KEY)
+    
     setIsLoadingStores(true)
-    const { data, error } = await supabase
-      .from('stores')
-      .select('id, name, location')
-      .order('id', { ascending: true })
-
-    if (error) {
-      console.error('[stores.fetch] error:', error)
-      setStores([])
-    } else {
-      const storesData = (data as Store[] | null) || []
+    
+    try {
+      console.log('📞 Direct API 호출 시도 중...')
+      
+      const data = await directSupabaseCall('stores?select=id,name,location&order=id.asc')
+      console.log('📞 Direct API 성공:', data)
+      
+      const storesData = (data as Store[]) || []
       setStores(storesData)
-      if (!selectedStoreId && storesData.length > 0) {
-        const firstStore = storesData[0] as Store
-        setSelectedStoreId(firstStore.id)
-      }
+      console.log('🏦 설정된 stores:', storesData.length, '개')
+      
+    } catch (err) {
+      console.error('🚫 fetchStores 에러:', err)
+      setStores([])
+    } finally {
+      setIsLoadingStores(false)
+      console.log('🏪 === fetchStores END ===')
     }
-    setIsLoadingStores(false)
-  }, [selectedStoreId])
+  }, []) // 의존성 배열에서 selectedStoreId 제거
 
   const fetchProducts = useCallback(async (storeId: number) => {
+    console.log('🛍️ fetchProducts 호출 시작 (Direct Fetch), storeId:', storeId)
     setIsLoadingProducts(true)
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('store_id', storeId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('[products.fetch] error:', error)
-      setProducts([])
-    } else {
-      console.log('[products.fetch] data:', data)
-      const productsData = (data as UiProduct[] | null) || []
+    
+    try {
+      const endpoint = `products?select=*&store_id=eq.${storeId}&order=display_order.asc.nullslast,created_at.desc`
+      console.log('📞 Products API endpoint:', endpoint)
+      
+      const data = await directSupabaseCall(endpoint)
+      console.log('🛍️ Direct Products API 성공:')
+      console.log('- Raw data:', data)
+      console.log('- Data type:', typeof data)
+      console.log('- Is array:', Array.isArray(data))
+      console.log('- Data length:', data?.length)
+      
+      const productsData = (data as UiProduct[]) || []
+      console.log('📺 Processed products data:')
+      console.log('- Products count:', productsData.length)
+      console.log('- First product:', productsData[0])
+      
       setProducts(productsData)
+      console.log('📋 State 업데이트 완료, 설정된 상품 수:', productsData.length)
+      
+    } catch (error) {
+      console.error('🚫 [products.fetch] error:', error)
+      setProducts([])
+    } finally {
+      setIsLoadingProducts(false)
+      console.log('🛍️ fetchProducts 완료')
     }
-    setIsLoadingProducts(false)
   }, [])
 
   useEffect(() => {
     fetchStores()
   }, [fetchStores])
+
+  // 첫 번째 점포 자동 선택
+  useEffect(() => {
+    console.log('🎯 첫 번째 점포 선택 체크:', { selectedStoreId, storesLength: stores.length })
+    if (!selectedStoreId && stores.length > 0) {
+      const firstStore = stores[0] as Store
+      console.log('🎯 첫 번째 점포 선택:', firstStore)
+      setSelectedStoreId(firstStore.id)
+    }
+  }, [stores, selectedStoreId])
 
   useEffect(() => {
     if (!selectedStoreId) return
@@ -71,6 +99,8 @@ const HomePage: React.FC = () => {
     let isMounted = true
     fetchProducts(selectedStoreId)
 
+    // 실시간 업데이트 임시 비활성화 (Direct Fetch 사용 시)
+    /*
     const channel = supabase
       .channel(`public:products:store_${selectedStoreId}`)
       .on(
@@ -109,20 +139,25 @@ const HomePage: React.FC = () => {
         }
       )
     channel.subscribe()
+    */
 
     return () => {
       isMounted = false
-      supabase.removeChannel(channel)
+      // supabase.removeChannel(channel)
     }
   }, [selectedStoreId, fetchProducts])
 
-  const availableProducts = useMemo(
-    () => products.filter((p) => !p.is_soldout && p.quantity > 0),
-    [products]
-  )
+  const availableProducts = useMemo(() => {
+    const filtered = products.filter((p) => !p.is_soldout && p.quantity > 0)
+    console.log('📋 상품 필터링 결과:')
+    console.log('- 전체 상품 수:', products.length)
+    console.log('- 판매 가능 상품 수:', filtered.length)
+    console.log('- 판매 가능 상품:', filtered.map(p => ({ id: p.id, name: p.name, is_soldout: p.is_soldout, quantity: p.quantity })))
+    return filtered
+  }, [products])
 
   const filteredProducts = useMemo(() => {
-    return availableProducts.filter(p => {
+    const categoryFiltered = availableProducts.filter(p => {
       // category 필드가 있으면 그것을 우선 사용
       if ('category' in p && p.category) {
         return p.category === selectedCategory
@@ -138,6 +173,13 @@ const HomePage: React.FC = () => {
              !p.name.toLowerCase().includes('기프트') &&
              !p.name.toLowerCase().includes('gift')
     })
+    
+    console.log('🏷️ 카테고리 필터링 결과:')
+    console.log('- 선택된 카테고리:', selectedCategory)
+    console.log('- 카테고리 필터링 후 상품 수:', categoryFiltered.length)
+    console.log('- 카테고리 필터링 후 상품:', categoryFiltered.map(p => ({ id: p.id, name: p.name, category: p.category })))
+    
+    return categoryFiltered
   }, [availableProducts, selectedCategory])
 
   const availableUiProducts: UiProduct[] = useMemo(
@@ -163,26 +205,26 @@ const HomePage: React.FC = () => {
         backdropFilter: 'blur(10px)',
         borderBottom: '1px solid var(--gray-100)'
       }}>
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex justify-between items-center">
-            <Link to={ROUTES.HOME} className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+            <Link to={ROUTES.HOME} className="flex items-center space-x-2 sm:space-x-3 hover:opacity-80 transition-opacity flex-shrink-0">
               {!logoError ? (
                 <img 
                   src="/logo.png" 
                   alt="달콤네 로고" 
-                  className="h-12 w-auto object-contain"
+                  className="h-8 sm:h-12 w-auto object-contain"
                   onError={() => setLogoError(true)}
                 />
               ) : (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 sm:space-x-2">
                   <div style={{ 
                     background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)',
                     borderRadius: 'var(--radius)',
-                    padding: 'var(--spacing-sm)'
+                    padding: 'var(--spacing-xs) var(--spacing-sm)'
                   }}>
-                    <span className="text-2xl">🍎</span>
+                    <span className="text-lg sm:text-2xl">🍎</span>
                   </div>
-                  <div>
+                  <div className="hidden sm:block">
                     <h1 className="text-xl font-bold" style={{ color: 'var(--gray-900)' }}>달콤네</h1>
                     <p className="text-sm" style={{ color: 'var(--gray-600)' }}>신선한 과일을 집까지</p>
                   </div>
@@ -190,19 +232,37 @@ const HomePage: React.FC = () => {
               )}
             </Link>
 
-            <Link to={ROUTES.CART}>
+            <Link to={ROUTES.CART} className="flex-shrink-0">
               <button 
-                className="dalkomne-button-primary relative flex items-center space-x-2"
-                style={{ fontSize: '14px' }}
+                className="relative flex items-center justify-center"
+                style={{ 
+                  background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)',
+                  color: 'var(--white)',
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius)',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  minHeight: '44px',
+                  minWidth: '100px',
+                  maxWidth: '140px'
+                }}
               >
-                <span>🛒</span>
-                <span>장바구니</span>
+                <span className="text-base mr-1">🛒</span>
+                <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+                  <span className="hidden xs:inline">장바구니</span>
+                  <span className="xs:hidden">카트</span>
+                </span>
+                
                 {getTotalItems() > 0 && (
                   <span 
-                    className="absolute -top-2 -right-2 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
-                    style={{ background: 'var(--dalkomne-peach)' }}
+                    className="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold"
+                    style={{ 
+                      background: 'var(--dalkomne-peach)',
+                      minWidth: '20px',
+                      fontSize: '11px'
+                    }}
                   >
-                    {getTotalItems()}
+                    {getTotalItems() > 99 ? '99+' : getTotalItems()}
                   </span>
                 )}
               </button>
@@ -211,7 +271,7 @@ const HomePage: React.FC = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 py-6 pb-24">
         <div 
           className="text-center py-8 mb-8"
           style={{
@@ -433,6 +493,9 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </main>
+      
+      {/* 하단 주문바 */}
+      <OrderBar />
     </div>
   )
 }

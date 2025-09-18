@@ -70,10 +70,13 @@ export interface Database {
           store_id: number
           name: string
           price: number
+          discount_price: number | null
+          discount_rate: number | null
           quantity: number
           image_url: string | null
           is_soldout: boolean
           category: string // 필수로 변경
+          display_order: number
           created_at: string
         }
         Insert: {
@@ -81,10 +84,13 @@ export interface Database {
           store_id: number
           name: string
           price: number
+          discount_price?: number | null
+          discount_rate?: number | null
           quantity: number
           image_url?: string | null
           is_soldout?: boolean
           category: string
+          display_order?: number
           created_at?: string
         }
         Update: {
@@ -92,10 +98,13 @@ export interface Database {
           store_id?: number
           name?: string
           price?: number
+          discount_price?: number | null
+          discount_rate?: number | null
           quantity?: number
           image_url?: string | null
           is_soldout?: boolean
           category?: string
+          display_order?: number
           created_at?: string
         }
       }

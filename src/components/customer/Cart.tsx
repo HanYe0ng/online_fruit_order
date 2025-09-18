@@ -78,14 +78,40 @@ const Cart: React.FC<CartProps> = ({ onCheckout }) => {
 
                   {/* 상품 정보 */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm sm:text-base mb-1 truncate" 
+                    <h3 className="font-semibold text-sm sm:text-base mb-1 text-ellipsis-2" 
                         style={{ color: 'var(--gray-900)' }}
                         title={item.product.name}>
                       {item.product.name}
                     </h3>
-                    <p className="font-bold text-sm sm:text-base" style={{ color: 'var(--dalkomne-orange)' }}>
-                      {item.product.price.toLocaleString()}원
-                    </p>
+                    <div className="space-y-1">
+                      {item.product.discount_price ? (
+                        // 할인가가 있는 경우
+                        <div>
+                          <div className="flex items-center space-x-1">
+                            <p className="font-bold text-sm sm:text-base" style={{ color: 'var(--dalkomne-orange)' }}>
+                              {item.product.discount_price.toLocaleString()}원
+                            </p>
+                            <span 
+                              className="px-1 py-0.5 rounded text-xs font-bold"
+                              style={{ 
+                                background: 'var(--error)', 
+                                color: 'var(--white)' 
+                              }}
+                            >
+                              {item.product.discount_rate ? `${item.product.discount_rate}%` : 'SALE'}
+                            </span>
+                          </div>
+                          <p className="text-xs line-through" style={{ color: 'var(--gray-500)' }}>
+                            {item.product.price.toLocaleString()}원
+                          </p>
+                        </div>
+                      ) : (
+                        // 일반 가격
+                        <p className="font-bold text-sm sm:text-base" style={{ color: 'var(--dalkomne-orange)' }}>
+                          {item.product.price.toLocaleString()}원
+                        </p>
+                      )}
+                    </div>
                     {/* 카테고리 배지 */}
                     <div className="mt-1 sm:mt-2">
                       <span 
@@ -150,7 +176,7 @@ const Cart: React.FC<CartProps> = ({ onCheckout }) => {
                     <div className="text-right sm:text-center">
                       <p className="text-xs" style={{ color: 'var(--gray-600)' }}>소계</p>
                       <p className="text-sm sm:text-base font-bold" style={{ color: 'var(--dalkomne-orange)' }}>
-                        {(item.product.price * item.quantity).toLocaleString()}원
+                        {((item.product.discount_price || item.product.price) * item.quantity).toLocaleString()}원
                       </p>
                     </div>
                     
@@ -211,17 +237,43 @@ const Cart: React.FC<CartProps> = ({ onCheckout }) => {
 
                   {/* 상품 정보 */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm sm:text-base mb-1 truncate" 
+                    <h3 className="font-semibold text-sm sm:text-base mb-1 text-ellipsis-2" 
                         style={{ color: 'var(--gray-900)' }}
                         title={giftItem.product.name}>
                       {giftItem.product.name}
                     </h3>
-                    <p className="font-bold text-sm sm:text-base mb-1" style={{ color: 'var(--dalkomne-orange)' }}>
-                      {giftItem.product.price.toLocaleString()}원
-                    </p>
+                    <div className="space-y-1">
+                      {giftItem.product.discount_price ? (
+                        // 할인가가 있는 경우
+                        <div>
+                          <div className="flex items-center space-x-1">
+                            <p className="font-bold text-sm sm:text-base" style={{ color: 'var(--dalkomne-orange)' }}>
+                              {giftItem.product.discount_price.toLocaleString()}원
+                            </p>
+                            <span 
+                              className="px-1 py-0.5 rounded text-xs font-bold"
+                              style={{ 
+                                background: 'var(--error)', 
+                                color: 'var(--white)' 
+                              }}
+                            >
+                              {giftItem.product.discount_rate ? `${giftItem.product.discount_rate}%` : 'SALE'}
+                            </span>
+                          </div>
+                          <p className="text-xs line-through" style={{ color: 'var(--gray-500)' }}>
+                            {giftItem.product.price.toLocaleString()}원
+                          </p>
+                        </div>
+                      ) : (
+                        // 일반 가격
+                        <p className="font-bold text-sm sm:text-base" style={{ color: 'var(--dalkomne-orange)' }}>
+                          {giftItem.product.price.toLocaleString()}원
+                        </p>
+                      )}
+                    </div>
                     
                     {/* 배송 옵션 정보 */}
-                    <div className="text-xs mb-2 p-2 rounded break-words" 
+                    <div className="text-xs mb-2 p-2 rounded text-ellipsis-2" 
                          style={{ 
                            color: 'var(--gray-600)', 
                            background: 'var(--gray-100)' 
@@ -293,7 +345,7 @@ const Cart: React.FC<CartProps> = ({ onCheckout }) => {
                     <div className="text-right sm:text-center">
                       <p className="text-xs" style={{ color: 'var(--gray-600)' }}>소계</p>
                       <p className="text-sm sm:text-base font-bold" style={{ color: 'var(--dalkomne-orange)' }}>
-                        {(giftItem.product.price * giftItem.quantity).toLocaleString()}원
+                        {((giftItem.product.discount_price || giftItem.product.price) * giftItem.quantity).toLocaleString()}원
                       </p>
                     </div>
                     

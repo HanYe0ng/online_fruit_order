@@ -26,13 +26,13 @@ const GiftProductCard: React.FC<GiftProductCardProps> = ({ product }) => {
         <img 
           src={product.image_url || '/placeholder-fruit.jpg'} 
           alt={product.name}
-          className="w-full h-48 object-cover rounded-t-lg"
+          className="w-full h-40 sm:h-48 object-cover rounded-t-lg"
         />
         
         {/* 할인 배지 */}
         {product.discount && (
           <div 
-            className="absolute top-3 left-3 px-2 py-1 text-sm font-bold rounded"
+            className="absolute top-2 sm:top-3 left-2 sm:left-3 px-2 py-1 text-xs sm:text-sm font-bold rounded"
             style={{
               backgroundColor: 'var(--dalkomne-orange)',
               color: 'white'
@@ -45,12 +45,12 @@ const GiftProductCard: React.FC<GiftProductCardProps> = ({ product }) => {
         {/* 품절 오버레이 */}
         {product.is_soldout && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-t-lg">
-            <span className="text-white text-lg font-bold">품절</span>
+            <span className="text-white text-base sm:text-lg font-bold">품절</span>
           </div>
         )}
       </div>
 
-      <div className="p-4">
+      <div className="p-3 sm:p-4">
         {/* 태그 */}
         {product.tags && product.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
@@ -70,7 +70,7 @@ const GiftProductCard: React.FC<GiftProductCardProps> = ({ product }) => {
         )}
 
         {/* 상품명 */}
-        <h3 className="font-semibold text-lg mb-2 line-clamp-2" style={{ color: 'var(--gray-900)' }}>
+        <h3 className="font-semibold text-sm sm:text-lg mb-2 text-ellipsis-2" style={{ color: 'var(--gray-900)' }}>
           {product.name}
         </h3>
 
@@ -86,22 +86,22 @@ const GiftProductCard: React.FC<GiftProductCardProps> = ({ product }) => {
         )}
 
         {/* 가격 */}
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between mb-2">
           <div>
             {product.originalPrice && product.discount ? (
               <div>
                 <div 
-                  className="text-sm line-through mb-1"
+                  className="text-xs sm:text-sm line-through mb-1"
                   style={{ color: 'var(--gray-400)' }}
                 >
                   {formatPrice(product.originalPrice)}원
                 </div>
-                <div className="text-lg font-bold" style={{ color: 'var(--dalkomne-orange-dark)' }}>
+                <div className="text-base sm:text-lg font-bold" style={{ color: 'var(--dalkomne-orange-dark)' }}>
                   {formatPrice(product.price)}원
                 </div>
               </div>
             ) : (
-              <div className="text-lg font-bold" style={{ color: 'var(--dalkomne-orange-dark)' }}>
+              <div className="text-base sm:text-lg font-bold" style={{ color: 'var(--dalkomne-orange-dark)' }}>
                 {formatPrice(product.price)}원
               </div>
             )}
@@ -115,7 +115,7 @@ const GiftProductCard: React.FC<GiftProductCardProps> = ({ product }) => {
 
         {/* 짧은 설명 */}
         <p 
-          className="text-sm mt-2 line-clamp-2"
+          className="text-xs sm:text-sm text-ellipsis-2"
           style={{ color: 'var(--gray-600)' }}
         >
           {product.description}

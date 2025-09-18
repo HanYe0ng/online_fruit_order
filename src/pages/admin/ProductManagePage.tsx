@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { Button, Card, ErrorBoundary, ProductCardSkeleton, NetworkError } from '../../components/common'
-import { AdminLayout, ProductForm, ProductList } from '../../components/admin'
+import { AdminLayout, ProductForm, ProductList, ProductOrderManager } from '../../components/admin'
+import { SessionRecoveryButton } from '../../components/admin/SessionRecoveryButton'
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useToggleSoldOut } from '../../hooks/useProducts'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
+import { useConnectionStatus } from '../../hooks/useConnectionStatus'
 import { Product, ProductFormData } from '../../types/product'
 import { supabase } from '../../services/supabase'
 
@@ -12,8 +14,10 @@ type StoreLite = { id: number; name: string }
 const ProductManagePage: React.FC = () => {
   const { user } = useAuth()
   const toast = useToast()
+  const { isConnected, checkConnection } = useConnectionStatus()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [isOrderManagerOpen, setIsOrderManagerOpen] = useState(false)
 
   const isAdmin = user?.role === 'admin'
   const [stores, setStores] = useState<StoreLite[]>([])
@@ -101,6 +105,24 @@ const ProductManagePage: React.FC = () => {
     console.log('🔄 refetch 호출')
     return originalRefetch()
   }, [originalRefetch])
+
+  // 페이지 가시성 감지 및 자동 새로고침
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('📱 탭 활성화됨 - 데이터 새로고침')
+        // 탭이 다시 활성화되면 데이터를 새로고침
+        setTimeout(() => {
+          refetch()
+        }, 500) // 500ms 지연 후 실행
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refetch])
 
   const products = useMemo(() => productsResponse?.data || [], [productsResponse?.data])
 
@@ -203,20 +225,91 @@ const ProductManagePage: React.FC = () => {
 
   // 에러 상태 처리
   if (error) {
+    // 인증 관련 에러인지 확인
+    const errorMessage = error?.message || ''
+    const isAuthError = errorMessage.includes('JWT') || 
+                       errorMessage.includes('Authentication') ||
+                       errorMessage.includes('Session') ||
+                       errorMessage.includes('인증')
+    
     return (
       <AdminLayout>
-        <NetworkError
-          title="데이터를 불러올 수 없습니다"
-          message="네트워크 연결을 확인하고 다시 시도해주세요."
-          onRetry={() => refetch()}
-        />
+        <div className="dalkomne-card p-6 text-center max-w-md mx-auto mt-10">
+          <div className="text-6xl mb-4">😵</div>
+          <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--error)' }}>
+            {isAuthError ? '세션이 만료되었습니다' : '데이터를 불러올 수 없습니다'}
+          </h3>
+          <p className="text-gray-600 mb-6">
+            {isAuthError 
+              ? '로그인 세션이 만료되었습니다. 세션을 복구하거나 다시 로그인해주세요.' 
+              : '네트워크 연결을 확인하고 다시 시도해주세요.'}
+          </p>
+          <div className="flex flex-col gap-3">
+            {isAuthError ? (
+              <SessionRecoveryButton 
+                onRecoverySuccess={() => {
+                  refetch()
+                }} 
+                className="justify-center"
+              />
+            ) : (
+              <button
+                onClick={() => {
+                  checkConnection()
+                  refetch()
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
+              >
+                <span>🔄</span>
+                <span>다시 시도</span>
+              </button>
+            )}
+            <p className="text-xs text-gray-500 mt-2">
+              문제가 지속되면 페이지를 새로고침하거나 관리자에게 문의하세요.
+            </p>
+          </div>
+        </div>
       </AdminLayout>
     )
   }
 
+  // 연결 상태 경고
+  const connectionWarning = !isConnected && (
+    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <div className="flex items-center space-x-2">
+        <span className="text-yellow-600">⚠️</span>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-yellow-800">
+            네트워크 연결 불안정
+          </p>
+          <p className="text-xs text-yellow-700">
+            데이터를 불러오는 데 시간이 걸릴 수 있습니다. 세션 복구를 시도하거나 잠시 후 다시 시도해주세요.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <SessionRecoveryButton 
+            onRecoverySuccess={() => refetch()} 
+            className="text-xs px-2 py-1 bg-orange-500 hover:bg-orange-600"
+          />
+          <button
+            onClick={() => {
+              checkConnection()
+              refetch()
+            }}
+            className="px-3 py-1 bg-yellow-200 text-yellow-800 rounded text-xs hover:bg-yellow-300 transition-colors"
+          >
+            재연결
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <AdminLayout>
       <ErrorBoundary>
+        {/* 연결 상태 경고 */}
+        {connectionWarning}
 
         {/* 점포 선택 및 액션 버튼 - 더 작게 수정 */}
         <div className="dalkomne-card p-4 mb-6">
@@ -274,6 +367,31 @@ const ProductManagePage: React.FC = () => {
                 <span>➕</span>
                 <span>새 상품</span>
               </button>
+              
+              {/* 순서 관리 버튼 - 점포가 선택되었을 때만 표시 */}
+              {selectedStoreId && (
+                <button
+                  onClick={() => setIsOrderManagerOpen(true)}
+                  className="px-4 py-2 rounded-lg border-2 font-semibold transition-all duration-300 flex items-center space-x-1"
+                  style={{
+                    borderColor: 'var(--dalkomne-orange)',
+                    color: 'var(--dalkomne-orange)',
+                    background: 'var(--white)',
+                    fontSize: '14px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--dalkomne-orange)'
+                    e.currentTarget.style.color = 'var(--white)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'var(--white)'
+                    e.currentTarget.style.color = 'var(--dalkomne-orange)'
+                  }}
+                >
+                  <span>🔄</span>
+                  <span>순서 관리</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -371,6 +489,17 @@ const ProductManagePage: React.FC = () => {
           initialData={editingProduct}
           title={editingProduct ? '상품 수정' : '새 상품 등록'}
         />
+
+        {/* 상품 순서 관리 모달 */}
+        {isOrderManagerOpen && selectedStoreId && (
+          <ProductOrderManager
+            storeId={selectedStoreId}
+            onClose={() => {
+              setIsOrderManagerOpen(false)
+              refetch() // 순서 변경 후 목록 새로고침
+            }}
+          />
+        )}
       </ErrorBoundary>
     </AdminLayout>
   )

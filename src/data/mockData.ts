@@ -27,6 +27,9 @@ export const mockGiftProducts: GiftProduct[] = [
     store_id: 1, // 실제 DB의 첫 번째 점포 ID에 대응 (동적으로 대체 가능)
     name: "달콤네 추천 실속세트 9과",
     price: 53000,
+    discount_price: 47700, // 할인가 (10% 할인)
+    discount_rate: 10, // 할인율
+    display_order: 1, // 표시 순서
     originalPrice: 59000,
     discount: 10,
     quantity: 15,

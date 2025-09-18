@@ -209,6 +209,25 @@
     text-overflow: ellipsis;
   }
 
+  /* 텍스트 줄바꿈 방지 */
+  .no-wrap {
+    white-space: nowrap;
+  }
+
+  .no-wrap-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  /* 반응형 텍스트 */
+  .responsive-text {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
   /* 모바일 친화적인 터치 타겟 */
   .touch-target {
     min-height: 44px;
@@ -271,6 +290,17 @@
   }
 }
 
+/* xs 브레이크포인트 추가 (475px 이상) */
+@media (min-width: 475px) {
+  .xs\:inline {
+    display: inline !important;
+  }
+  
+  .xs\:hidden {
+    display: none !important;
+  }
+}
+
 /* 모바일에서 특정 요소들의 터치 반응 개선 */
 @media (max-width: 640px) {
   button, 
@@ -311,12 +341,49 @@
   .mobile-button-group button {
     width: 100%;
   }
+
+  /* 모바일에서 터치 친화적 버튼 */
+  .mobile-touch-button {
+    min-height: 48px;
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+
+  /* 모바일에서 텍스트 크기 조정 */
+  .mobile-text-base {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* 모바일에서 간격 최적화 */
+  .mobile-gap {
+    gap: 0.75rem;
+  }
+
+  .mobile-space-y > * + * {
+    margin-top: 0.75rem;
+  }
+
+  .mobile-space-x > * + * {
+    margin-left: 0.75rem;
+  }
 }
 
 /* 고해상도 디스플레이 대응 */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
   .dalkomne-card {
     border-width: 0.5px;
+  }
+
+  /* 모바일에서 더 부드러운 스크롤 */
+  .mobile-smooth-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* 모바일에서 탭 하이라이트 제거 */
+  .no-tap-highlight {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
