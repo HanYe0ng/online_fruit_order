@@ -17,9 +17,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
     try {
       addItem(product, 1)
       
-      // 성공 토스트
-      toast.success('장바구니 추가 완료', `${product.name}이(가) 장바구니에 추가되었습니다.`)
-      
       if (onAddToCart) {
         onAddToCart(product)
       }
@@ -39,7 +36,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   return (
     <div className="dalkomne-product-card h-full flex flex-col">
       {/* 상품 이미지 */}
-      <div className="w-full h-40 sm:h-48 bg-gray-50 overflow-hidden flex-shrink-0 relative">
+      <div className="w-full h-32 xs:h-36 sm:h-40 md:h-44 lg:h-48 bg-gray-50 overflow-hidden flex-shrink-0 relative">
         {product.image_url ? (
           <>
             <img
@@ -57,16 +54,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
         ) : (
           <div className="w-full h-full flex items-center justify-center" 
                style={{ color: 'var(--gray-400)' }}>
-            <span className="text-3xl sm:text-4xl">🍎</span>
+            <span className="text-2xl xs:text-3xl sm:text-4xl">🍎</span>
           </div>
         )}
 
         {/* 카테고리 배지 */}
         <div 
-          className="absolute top-2 sm:top-3 right-2 sm:right-3 px-2 py-1 rounded-full text-xs font-medium"
+          className="absolute top-1 xs:top-2 sm:top-3 right-1 xs:right-2 sm:right-3 px-1.5 xs:px-2 py-0.5 xs:py-1 rounded-full text-xs font-medium"
           style={{
             background: (product.category || 'today') === 'gift' ? 'var(--dalkomne-orange)' : 'var(--dalkomne-peach)',
-            color: 'var(--white)'
+            color: 'var(--white)',
+            fontSize: '10px'
           }}
         >
           {(product.category || 'today') === 'gift' ? '🎁' : '🍎'}
@@ -86,11 +84,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
       </div>
 
       {/* 상품 정보 */}
-      <div className="flex-grow flex flex-col justify-between p-3 sm:p-4">
-        <div className="space-y-1 sm:space-y-2 mb-3 sm:mb-4">
+      <div className="flex-grow flex flex-col justify-between p-2 xs:p-3 sm:p-4">
+        <div className="space-y-1 sm:space-y-2 mb-2 xs:mb-3 sm:mb-4">
           {/* 상품명 - 모바일에서 텍스트 오버플로우 방지 */}
           <h3 
-            className="font-semibold text-sm sm:text-base leading-tight"
+            className="font-semibold text-xs xs:text-sm sm:text-base leading-tight"
             style={{ 
               color: 'var(--gray-900)',
               display: '-webkit-box',
@@ -98,7 +96,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
               wordBreak: 'keep-all',
-              lineHeight: '1.3'
+              lineHeight: '1.2'
             }}
             title={product.name}
           >
@@ -110,25 +108,26 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
             {product.discount_price ? (
               // 할인가가 있는 경우
               <div className="space-y-1">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 xs:space-x-2">
                   <p 
-                    className="text-base sm:text-lg font-bold"
+                    className="text-sm xs:text-base sm:text-lg font-bold"
                     style={{ color: 'var(--dalkomne-orange)' }}
                   >
                     {product.discount_price.toLocaleString()}원
                   </p>
                   <span 
-                    className="px-2 py-1 rounded text-xs font-bold"
+                    className="px-1 xs:px-2 py-0.5 xs:py-1 rounded text-xs font-bold"
                     style={{ 
                       background: 'var(--error)', 
-                      color: 'var(--white)' 
+                      color: 'var(--white)',
+                      fontSize: '10px'
                     }}
                   >
                     {product.discount_rate ? `${product.discount_rate}%` : 'SALE'}
                   </span>
                 </div>
                 <p 
-                  className="text-sm line-through"
+                  className="text-xs xs:text-sm line-through"
                   style={{ color: 'var(--gray-500)' }}
                 >
                   {product.price.toLocaleString()}원
@@ -137,7 +136,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
             ) : (
               // 일반 가격
               <p 
-                className="text-base sm:text-lg font-bold"
+                className="text-sm xs:text-base sm:text-lg font-bold"
                 style={{ color: 'var(--dalkomne-orange)' }}
               >
                 {product.price.toLocaleString()}원
@@ -159,7 +158,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           {product.is_soldout ? (
             <button 
               disabled 
-              className="w-full py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm"
+              className="w-full py-1.5 xs:py-2 sm:py-3 rounded-lg font-semibold text-xs font-medium"
               style={{ 
                 background: 'var(--gray-200)', 
                 color: 'var(--gray-500)'
@@ -170,7 +169,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           ) : product.quantity === 0 ? (
             <button 
               disabled 
-              className="w-full py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm"
+              className="w-full py-1.5 xs:py-2 sm:py-3 rounded-lg font-semibold text-xs font-medium"
               style={{ 
                 background: 'var(--gray-200)', 
                 color: 'var(--gray-500)'
@@ -181,9 +180,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           ) : (
             <button 
               onClick={handleAddToCart} 
-              className="dalkomne-button-primary w-full py-2 sm:py-3 text-xs sm:text-sm font-semibold"
+              className="dalkomne-button-primary w-full py-1.5 xs:py-2 sm:py-3 text-xs font-semibold"
             >
-              🛒 장바구니 담기
+              <span className="hidden xs:inline">🛒 장바구니 담기</span>
+              <span className="xs:hidden">🛒 담기</span>
             </button>
           )}
         </div>

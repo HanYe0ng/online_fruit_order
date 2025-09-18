@@ -142,7 +142,6 @@ const ProductOrderManager: React.FC<ProductOrderManagerProps> = ({ storeId, onCl
       console.log('로드된 상품 데이터:', data)
       
       setProducts(data)
-      toast.success('로드 완료', `상품 ${data.length}개를 불러왔습니다.`)
     } catch (error) {
       console.error('상품 목록 로드 실패:', error)
       toast.error('로드 실패', '상품 목록을 불러올 수 없습니다. 다시 시도해주세요.')

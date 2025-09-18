@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Loading } from '../../components/common'
+// import { Pagination } from '../../components/common' // 임시 비활성화
 import { ProductCard, OrderBar } from '../../components/customer'
 import GiftProductCard from '../../components/customer/GiftProductCard'
 import { useCartStore } from '../../stores/cartStore'
+// import { useResponsivePagination } from '../../hooks/useResponsivePagination'
 import { ROUTES } from '../../utils/constants'
 import { directSupabaseCall } from '../../services/directSupabase'
 import { updatePageTitle, updatePageDescription, PAGE_TITLES, PAGE_DESCRIPTIONS } from '../../utils/pageTitle'
@@ -187,6 +189,28 @@ const HomePage: React.FC = () => {
     [filteredProducts]
   )
 
+  // 간단한 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(8) // 고정값으로 시작
+  
+  // 현재 페이지의 상품들
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentPageProducts = availableUiProducts.slice(startIndex, endIndex)
+  const totalPages = Math.ceil(availableUiProducts.length / itemsPerPage)
+  
+  // 페이지 변경 함수
+  const handlePageChange = (page: number) => {
+    const validPage = Math.max(1, Math.min(page, totalPages))
+    setCurrentPage(validPage)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  
+  // 카테고리 변경 시 페이지 리셋
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedCategory])
+
   const currentStoreName = useMemo(() => {
     const foundStore = (stores as Store[]).find((s: Store) => s.id === selectedStoreId)
     return foundStore?.name ?? '점포 선택'
@@ -341,7 +365,7 @@ const HomePage: React.FC = () => {
                   color: 'var(--white)' 
                 }}
               >
-                {availableUiProducts.length}개 상품
+                전체 {availableUiProducts.length}개
               </span>
             </div>
           </div>
@@ -385,35 +409,91 @@ const HomePage: React.FC = () => {
               <Loading text="상품을 불러오는 중..." />
             </div>
           ) : availableUiProducts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {availableUiProducts.map((product) => (
-                selectedCategory === 'gift' ? (
-                  <GiftProductCard
-                    key={product.id}
-                    product={{
-                      ...product,
-                      originalPrice: product.price + Math.floor(product.price * 0.1),
-                      discount: 10,
-                      description: `신선한 ${product.name}을 선물로 전해보세요.`,
-                      tags: ['신선한', '선물용', '추천'],
-                      rating: 4.5 + Math.random() * 0.5,
-                      reviewCount: Math.floor(Math.random() * 50) + 10,
-                      images: product.image_url ? [product.image_url] : [],
-                      nutritionInfo: `영양가득한 ${product.name}`,
-                      storageInfo: '서늘하고 통풍이 잘 되는 곳에 보관',
-                      origin: '국내산'
-                    }}
+            <div className="space-y-6">
+              {/* 반응형 상품 그리드 */}
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                {currentPageProducts.map((product) => (
+                  selectedCategory === 'gift' ? (
+                    <GiftProductCard
+                      key={product.id}
+                      product={{
+                        ...product,
+                        originalPrice: product.price + Math.floor(product.price * 0.1),
+                        discount: 10,
+                        description: `신선한 ${product.name}을 선물로 전해보세요.`,
+                        tags: ['신선한', '선물용', '추천'],
+                        rating: 4.5 + Math.random() * 0.5,
+                        reviewCount: Math.floor(Math.random() * 50) + 10,
+                        images: product.image_url ? [product.image_url] : [],
+                        nutritionInfo: `영양가득한 ${product.name}`,
+                        storageInfo: '서늘하고 통풍이 잘 되는 곳에 보관',
+                        origin: '국내산'
+                      }}
+                    />
+                  ) : (
+                    <ProductCard
+                      key={product.id}
+                      product={product} 
+                      onAddToCart={(p) => {
+                        console.log(`${p.name}이(가) 장바구니에 추가되었습니다.`)
+                      }}
+                    />
+                  )
+                ))}
+              </div>
+              
+              {/* 페이지네이션 - 임시 비활성화 */}
+              {/* {totalPages > 1 && (
+                <div className="mt-8">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalItems={availableUiProducts.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={handlePageChange}
+                    maxVisiblePages={5}
                   />
-                ) : (
-                  <ProductCard
-                    key={product.id}
-                    product={product} 
-                    onAddToCart={(p) => {
-                      console.log(`${p.name}이(가) 장바구니에 추가되었습니다.`)
-                    }}
-                  />
-                )
-              ))}
+                </div>
+              )} */}
+              
+              {/* 간단한 페이지네이션 */}
+              {totalPages > 1 && (
+                <div className="mt-8 flex flex-col items-center space-y-4">
+                  <div className="text-sm" style={{ color: 'var(--gray-600)' }}>
+                    전체 {availableUiProducts.length}개 중 {startIndex + 1}-{Math.min(endIndex, availableUiProducts.length)}개 표시
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 rounded-lg text-sm font-medium border transition-colors"
+                      style={{
+                        background: currentPage === 1 ? 'var(--gray-100)' : 'var(--white)',
+                        color: currentPage === 1 ? 'var(--gray-400)' : 'var(--gray-700)',
+                        borderColor: 'var(--gray-200)'
+                      }}
+                    >
+                      이전
+                    </button>
+                    
+                    <span className="px-4 py-2 text-sm font-medium">
+                      {currentPage} / {totalPages}
+                    </span>
+                    
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 rounded-lg text-sm font-medium border transition-colors"
+                      style={{
+                        background: currentPage === totalPages ? 'var(--gray-100)' : 'var(--white)',
+                        color: currentPage === totalPages ? 'var(--gray-400)' : 'var(--gray-700)',
+                        borderColor: 'var(--gray-200)'
+                      }}
+                    >
+                      다음
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div 
@@ -438,7 +518,11 @@ const HomePage: React.FC = () => {
               {selectedStoreId && (
                 <div className="flex justify-center">
                   <button 
-                    onClick={() => fetchProducts(selectedStoreId)}
+                    onClick={() => {
+                      fetchProducts(selectedStoreId)
+                      // 페이지를 1로 리셋
+                      setCurrentPage(1)
+                    }}
                     className="dalkomne-button-primary"
                   >
                     새로고침

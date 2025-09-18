@@ -10,6 +10,7 @@ export { default as NetworkError } from './NetworkError'
 export { default as EmptyState } from './EmptyState'
 export { default as SkeletonLoader, ProductCardSkeleton, OrderCardSkeleton, TableSkeleton } from './SkeletonLoader'
 export { default as CameraCapture } from './CameraCapture'
+export { default as Pagination } from './Pagination'
 
 // 타입 exports
 export type { ButtonProps } from './Button'

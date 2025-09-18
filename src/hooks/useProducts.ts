@@ -3,7 +3,7 @@ import { productService } from '../services/products'
 import { ProductFormData, ProductFilters } from '../types/product'
 import { PostgrestError } from '@supabase/supabase-js'
 
-// 인증 오류 감지 (Supabase v2 기준: status 코드 활용 권장)
+// 인증 오류 감지S
 const isAuthError = (error: any): boolean => {
   if (!error) return false
   
