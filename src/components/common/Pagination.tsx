@@ -2,162 +2,131 @@ import React from 'react'
 
 interface PaginationProps {
   currentPage: number
+  totalPages: number
   totalItems: number
   itemsPerPage: number
   onPageChange: (page: number) => void
-  maxVisiblePages?: number
+  className?: string
 }
 
-function Pagination({
+const Pagination: React.FC<PaginationProps> = ({
   currentPage,
+  totalPages,
   totalItems,
   itemsPerPage,
   onPageChange,
-  maxVisiblePages = 5
-}: PaginationProps) {
-  const totalPages = Math.ceil(totalItems / itemsPerPage)
-  
+  className = ''
+}) => {
   if (totalPages <= 1) return null
 
   const getVisiblePages = () => {
-    const half = Math.floor(maxVisiblePages / 2)
-    let start = Math.max(1, currentPage - half)
-    let end = Math.min(totalPages, start + maxVisiblePages - 1)
-    
-    if (end - start + 1 < maxVisiblePages) {
-      start = Math.max(1, end - maxVisiblePages + 1)
+    const delta = 2 // 현재 페이지 앞뒤로 보여줄 페이지 수
+    const range = []
+    const rangeWithDots = []
+
+    // 시작과 끝 계산
+    const start = Math.max(2, currentPage - delta)
+    const end = Math.min(totalPages - 1, currentPage + delta)
+
+    for (let i = start; i <= end; i++) {
+      range.push(i)
     }
-    
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+
+    // 첫 페이지는 항상 표시
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...')
+    } else {
+      rangeWithDots.push(1)
+    }
+
+    // 중간 범위 추가
+    rangeWithDots.push(...range)
+
+    // 마지막 페이지 처리
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages)
+    } else if (totalPages > 1) {
+      rangeWithDots.push(totalPages)
+    }
+
+    return rangeWithDots
   }
 
   const visiblePages = getVisiblePages()
-  const showFirstPage = visiblePages[0] > 1
-  const showLastPage = visiblePages[visiblePages.length - 1] < totalPages
-  const showFirstEllipsis = visiblePages[0] > 2
-  const showLastEllipsis = visiblePages[visiblePages.length - 1] < totalPages - 1
-
-  const getButtonStyle = (isActive: boolean, isDisabled?: boolean) => {
-    if (isDisabled) {
-      return {
-        background: 'var(--gray-100)',
-        color: 'var(--gray-400)',
-        cursor: 'not-allowed'
-      }
-    }
-    
-    if (isActive) {
-      return {
-        background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)',
-        color: 'var(--white)',
-        boxShadow: 'var(--shadow-orange)'
-      }
-    }
-    
-    return {
-      background: 'var(--white)',
-      color: 'var(--gray-700)',
-      border: '1px solid var(--gray-200)'
-    }
-  }
-
-  const baseButtonClass = "min-w-[40px] h-10 flex items-center justify-center rounded-lg font-medium text-sm transition-all duration-200"
 
   return (
-    <div className="flex flex-col items-center space-y-4">
-      {/* 페이지 정보 */}
-      <div className="text-sm" style={{ color: 'var(--gray-600)' }}>
-        전체 {totalItems}개 중 {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalItems)}개 표시
+    <div className={`flex items-center justify-between ${className}`}>
+      {/* 정보 표시 */}
+      <div className="text-sm text-gray-600">
+        <span>
+          전체 <span className="font-medium text-gray-900">{totalItems}</span>개 중{' '}
+          <span className="font-medium text-gray-900">
+            {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}
+          </span>
+          -
+          <span className="font-medium text-gray-900">
+            {Math.min(currentPage * itemsPerPage, totalItems)}
+          </span>
+          개 표시
+        </span>
       </div>
-      
-      {/* 페이지네이션 버튼들 */}
-      <div className="flex items-center space-x-1">
-        {/* 이전 페이지 버튼 */}
+
+      {/* 페이지 버튼 */}
+      <nav className="flex items-center space-x-1">
+        {/* 이전 페이지 */}
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className={`${baseButtonClass} ${currentPage === 1 ? '' : 'hover:bg-gray-50 hover:border-orange-400'}`}
-          style={getButtonStyle(false, currentPage === 1)}
-          aria-label="이전 페이지"
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            currentPage === 1
+              ? 'text-gray-400 cursor-not-allowed'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+          }`}
         >
-          ←
+          이전
         </button>
 
-        {/* 첫 페이지 */}
-        {showFirstPage && (
-          <>
-            <button
-              onClick={() => onPageChange(1)}
-              className={`${baseButtonClass} ${currentPage === 1 ? '' : 'hover:bg-gray-50 hover:border-orange-400'}`}
-              style={getButtonStyle(currentPage === 1)}
-            >
-              1
-            </button>
-            {showFirstEllipsis && (
-              <span className="px-2" style={{ color: 'var(--gray-400)' }}>…</span>
+        {/* 페이지 번호들 */}
+        {visiblePages.map((page, index) => (
+          <React.Fragment key={index}>
+            {page === '...' ? (
+              <span className="px-3 py-2 text-gray-400">...</span>
+            ) : (
+              <button
+                onClick={() => onPageChange(page as number)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  currentPage === page
+                    ? 'bg-dalkomne-orange text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+                style={
+                  currentPage === page
+                    ? { 
+                        background: 'var(--dalkomne-orange)', 
+                        color: 'white' 
+                      }
+                    : {}
+                }
+              >
+                {page}
+              </button>
             )}
-          </>
-        )}
-
-        {/* 가시적인 페이지들 */}
-        {visiblePages.map(page => (
-          <button
-            key={page}
-            onClick={() => onPageChange(page)}
-            className={`${baseButtonClass} ${currentPage === page ? '' : 'hover:bg-gray-50 hover:border-orange-400'}`}
-            style={getButtonStyle(currentPage === page)}
-          >
-            {page}
-          </button>
+          </React.Fragment>
         ))}
 
-        {/* 마지막 페이지 */}
-        {showLastPage && (
-          <>
-            {showLastEllipsis && (
-              <span className="px-2" style={{ color: 'var(--gray-400)' }}>…</span>
-            )}
-            <button
-              onClick={() => onPageChange(totalPages)}
-              className={`${baseButtonClass} ${currentPage === totalPages ? '' : 'hover:bg-gray-50 hover:border-orange-400'}`}
-              style={getButtonStyle(currentPage === totalPages)}
-            >
-              {totalPages}
-            </button>
-          </>
-        )}
-
-        {/* 다음 페이지 버튼 */}
+        {/* 다음 페이지 */}
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className={`${baseButtonClass} ${currentPage === totalPages ? '' : 'hover:bg-gray-50 hover:border-orange-400'}`}
-          style={getButtonStyle(false, currentPage === totalPages)}
-          aria-label="다음 페이지"
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            currentPage === totalPages
+              ? 'text-gray-400 cursor-not-allowed'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+          }`}
         >
-          →
+          다음
         </button>
-      </div>
-
-      {/* 모바일에서 빠른 페이지 이동 */}
-      <div className="flex sm:hidden items-center space-x-2">
-        <button
-          onClick={() => onPageChange(1)}
-          disabled={currentPage === 1}
-          className="px-3 py-1 text-sm rounded-lg hover:bg-gray-50"
-          style={getButtonStyle(false, currentPage === 1)}
-        >
-          처음
-        </button>
-        <button
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage === totalPages}
-          className="px-3 py-1 text-sm rounded-lg hover:bg-gray-50"
-          style={getButtonStyle(false, currentPage === totalPages)}
-        >
-          마지막
-        </button>
-      </div>
+      </nav>
     </div>
   )
 }

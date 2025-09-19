@@ -296,16 +296,22 @@ const HomePage: React.FC = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 pb-24">
+        {/* 배달 구매 오픈 이벤트 배너 */}
         <div 
-          className="text-center py-8 mb-8"
+          className="relative text-center py-12 mb-8 overflow-hidden"
           style={{
-            background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)',
             borderRadius: 'var(--radius-lg)',
-            color: 'var(--white)'
+            // 기본 배경은 메인 컴러로 설정
+            background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)',
+            // 이미지를 contain으로 세로 길이에 맞추고 가운데 정렬
+            backgroundImage: 'url("/fruit-delivery-banner.png")',
+            backgroundSize: 'contain', // 세로 기준으로 맞춤
+            backgroundPosition: 'center', // 가운데 정렬
+            backgroundRepeat: 'no-repeat', // 반복 방지
+            minHeight: '200px' // 최소 높이 설정
           }}
         >
-          <h2 className="text-2xl font-bold mb-2">🍎 신선과일 FRESH ZONE</h2>
-          <p className="text-lg opacity-90">매일 새벽 배송되는 신선한 과일</p>
+          
         </div>
 
         <div className="dalkomne-card p-6 mb-6">

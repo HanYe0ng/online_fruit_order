@@ -1,26 +1,87 @@
 // src/services/products.ts
 import { supabase } from './supabase'
 import { Product, ProductFormData, ProductFilters } from '../types/product'
+
+// 페이지네이션 타입 정의
+interface PaginationParams {
+  page?: number
+  limit?: number
+}
+
+interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  error: string | null
+}
 import { detectInAppBrowser } from '../utils/browserDetection'
 import { getInAppOptimizationSettings } from '../utils/inAppOptimization'
 import { shouldBypassStorageUpload, prepareImageForDatabase } from '../utils/inAppImageUtils'
 import { getNextDisplayOrder } from './productOrder'
 
+// 타입 export
+export type { PaginationParams, PaginatedResponse }
+
 export const productService = {
-  // 상품 목록 조회
-  async getProducts(filters?: ProductFilters): Promise<{ data: Product[] | null; error: string | null }> {
+  // 상품 목록 조회 (페이지네이션 지원)
+  async getProducts(
+    filters?: ProductFilters, 
+    pagination?: PaginationParams
+  ): Promise<PaginatedResponse<Product>> {
     try {
-      let query = supabase.from('products').select('*').order('id', { ascending: false })
+      const page = pagination?.page || 1
+      const limit = pagination?.limit || 10
+      const offset = (page - 1) * limit
 
-      if (filters?.search) query = query.ilike('name', `%${filters.search}%`)
-      if (filters?.is_soldout !== undefined) query = query.eq('is_soldout', filters.is_soldout)
-      if (filters?.store_id) query = query.eq('store_id', filters.store_id)
+      // 기본 쿼리 설정
+      let query = supabase
+        .from('products')
+        .select('*', { count: 'exact' })
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: false })
 
-      const { data, error } = await query
-      if (error) return { data: null, error: error.message }
-      return { data, error: null }
-    } catch {
-      return { data: null, error: '상품 목록을 가져오는 중 오류가 발생했습니다.' }
+      // 필터 적용
+      if (filters?.search) {
+        query = query.ilike('name', `%${filters.search}%`)
+      }
+      if (filters?.is_soldout !== undefined) {
+        query = query.eq('is_soldout', filters.is_soldout)
+      }
+      if (filters?.store_id) {
+        query = query.eq('store_id', filters.store_id)
+      }
+
+      // 페이지네이션 적용
+      query = query.range(offset, offset + limit - 1)
+
+      const { data, error, count } = await query
+      
+      if (error) {
+        return {
+          data: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+          error: error.message
+        }
+      }
+
+      const total = count || 0
+      const totalPages = Math.ceil(total / limit)
+
+      return {
+        data: data || [],
+        pagination: { page, limit, total, totalPages },
+        error: null
+      }
+    } catch (err) {
+      return {
+        data: [],
+        pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+        error: '상품 목록을 가져오는 중 오류가 발생했습니다.'
+      }
     }
   },
 
@@ -33,9 +94,15 @@ export const productService = {
       if (!storeId) return { data: null, error: '점포가 선택되지 않았습니다.' }
 
       const price = Number(productData.price)
+      const discountPrice = productData.discount_price ? Number(productData.discount_price) : null
       const quantity = Number(productData.quantity)
+      
       if (!Number.isFinite(price) || !Number.isFinite(quantity)) {
         return { data: null, error: '가격/수량이 올바르지 않습니다.' }
+      }
+      
+      if (discountPrice !== null && (!Number.isFinite(discountPrice) || discountPrice >= price)) {
+        return { data: null, error: '할인가는 원래 가격보다 낮아야 합니다.' }
       }
 
       let imageUrl: string | null = null
@@ -89,8 +156,7 @@ export const productService = {
         store_id: storeId,
         name: productData.name?.trim(),
         price,
-        discount_price: productData.discount_price,
-        discount_rate: productData.discount_rate,
+        discount_price: discountPrice,
         quantity,
         image_url: imageUrl,
         display_order: displayOrder,
@@ -129,8 +195,13 @@ export const productService = {
         if (!Number.isFinite(price)) return { data: null, error: '가격이 올바르지 않습니다.' }
         updateData.price = price
       }
-      if (productData.discount_price !== undefined) updateData.discount_price = productData.discount_price
-      if (productData.discount_rate !== undefined) updateData.discount_rate = productData.discount_rate
+      if (productData.discount_price !== undefined) {
+        const discountPrice = productData.discount_price ? Number(productData.discount_price) : null
+        if (discountPrice !== null && !Number.isFinite(discountPrice)) {
+          return { data: null, error: '할인가가 올바르지 않습니다.' }
+        }
+        updateData.discount_price = discountPrice
+      }
       if (productData.quantity !== undefined) {
         const quantity = Number(productData.quantity)
         if (!Number.isFinite(quantity)) return { data: null, error: '수량이 올바르지 않습니다.' }

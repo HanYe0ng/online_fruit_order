@@ -42,7 +42,7 @@ const OrderFilters: React.FC<OrderFiltersProps> = ({
       </div>
 
       {/* 검색 및 새로고침 */}
-      <div className="flex space-x-3">
+      <div className="flex flex-col space-y-3">
         <div className="flex-1">
           <Input
             placeholder="고객명, 주문번호, 아파트명으로 검색..."
@@ -50,9 +50,6 @@ const OrderFilters: React.FC<OrderFiltersProps> = ({
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
-        <Button variant="outline" onClick={onRefresh}>
-          새로고침
-        </Button>
       </div>
     </div>
   )

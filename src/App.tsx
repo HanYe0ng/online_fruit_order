@@ -66,14 +66,6 @@ function App() {
               {/* Admin Routes */}
               <Route path={ROUTES.ADMIN_LOGIN} element={<LoginPage />} />
               <Route 
-                path={ROUTES.ADMIN_DASHBOARD} 
-                element={
-                  <ProtectedRoute>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
                 path={ROUTES.ADMIN_PRODUCTS} 
                 element={
                   <ProtectedRoute>
@@ -86,6 +78,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <OrderManagePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path={ROUTES.ADMIN_DASHBOARD} 
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
                   </ProtectedRoute>
                 } 
               />

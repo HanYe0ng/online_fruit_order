@@ -30,7 +30,7 @@ const GiftProductCard: React.FC<GiftProductCardProps> = ({ product }) => {
         />
         
         {/* 할인 배지 */}
-        {product.discount && (
+        {product.discount_price && product.discount_price < product.price && (
           <div 
             className="absolute top-2 sm:top-3 left-2 sm:left-3 px-2 py-1 text-xs sm:text-sm font-bold rounded"
             style={{
@@ -38,7 +38,7 @@ const GiftProductCard: React.FC<GiftProductCardProps> = ({ product }) => {
               color: 'white'
             }}
           >
-            {product.discount}% 할인
+            {Math.round((1 - product.discount_price / product.price) * 100)}% 할인
           </div>
         )}
 
@@ -88,16 +88,16 @@ const GiftProductCard: React.FC<GiftProductCardProps> = ({ product }) => {
         {/* 가격 */}
         <div className="flex items-end justify-between mb-2">
           <div>
-            {product.originalPrice && product.discount ? (
+            {product.discount_price && product.discount_price < product.price ? (
               <div>
                 <div 
                   className="text-xs sm:text-sm line-through mb-1"
                   style={{ color: 'var(--gray-400)' }}
                 >
-                  {formatPrice(product.originalPrice)}원
+                  {formatPrice(product.price)}원
                 </div>
                 <div className="text-base sm:text-lg font-bold" style={{ color: 'var(--dalkomne-orange-dark)' }}>
-                  {formatPrice(product.price)}원
+                  {formatPrice(product.discount_price)}원
                 </div>
               </div>
             ) : (

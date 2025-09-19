@@ -8,10 +8,9 @@ export type ProductUpdate = Database['public']['Tables']['products']['Update']
 // 커스텀 타입들 (비즈니스 로직용)
 export interface ProductFormData {
   name: string
-  price: number
-  discount_price?: number | null
-  discount_rate?: number | null
-  quantity: number
+  price: string
+  discount_price?: string | null
+  quantity: string
   category: 'today' | 'gift'
   image?: File | null
 }

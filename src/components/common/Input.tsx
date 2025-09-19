@@ -6,6 +6,7 @@ export interface InputProps {
   type?: 'text' | 'email' | 'password' | 'number' | 'tel'
   value?: string | number
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void
   error?: string
   disabled?: boolean
   required?: boolean
@@ -13,6 +14,7 @@ export interface InputProps {
   min?: string | number
   max?: string | number
   step?: string | number
+  clearOnFocus?: boolean
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(({ 
@@ -21,13 +23,15 @@ placeholder,
 type = 'text',
 value,
 onChange,
+onFocus,
 error,
 disabled = false,
 required = false,
 className = '',
   min,
   max,
-  step
+  step,
+  clearOnFocus = false
 }, ref) => {
   const inputClasses = `
     w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -35,6 +39,25 @@ className = '',
     ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
     ${className}
   `
+  
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (clearOnFocus && type === 'number' && (value === 0 || value === '0')) {
+      // input element의 값을 직접 비우기
+      e.target.value = ''
+      // onChange 핸들러 호출하여 상태 업데이트
+      if (onChange) {
+        const event = {
+          target: {
+            value: ''
+          }
+        } as React.ChangeEvent<HTMLInputElement>
+        onChange(event)
+      }
+    }
+    if (onFocus) {
+      onFocus(e)
+    }
+  }
   
   return (
     <div className="w-full">
@@ -49,6 +72,7 @@ className = '',
         type={type}
         value={value}
         onChange={onChange}
+        onFocus={handleFocus}
         placeholder={placeholder}
         disabled={disabled}
         required={required}

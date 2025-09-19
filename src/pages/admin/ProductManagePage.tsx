@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
-import { Button, Card, ErrorBoundary, ProductCardSkeleton, NetworkError } from '../../components/common'
+import { Button, Card, ErrorBoundary, ProductCardSkeleton, NetworkError, Pagination } from '../../components/common'
 import { AdminLayout, ProductForm, ProductList, ProductOrderManager } from '../../components/admin'
 import { SessionRecoveryButton } from '../../components/admin/SessionRecoveryButton'
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useToggleSoldOut } from '../../hooks/useProducts'
@@ -18,6 +18,8 @@ const ProductManagePage: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isOrderManagerOpen, setIsOrderManagerOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(12) // 한 페이지당 12개 상품
 
   const isAdmin = user?.role === 'admin'
   const [stores, setStores] = useState<StoreLite[]>([])
@@ -94,7 +96,12 @@ const ProductManagePage: React.FC = () => {
 
   // 쿼리 및 뮤테이션 (관리자는 선택 점포 기준; 선택 없으면 전체)
   const queryKey = useMemo(() => ({ store_id: selectedStoreId }), [selectedStoreId])
-  const { data: productsResponse, isLoading, error, refetch: originalRefetch } = useProducts(queryKey)
+  const paginationParams = useMemo(() => ({ 
+    page: currentPage, 
+    limit: itemsPerPage 
+  }), [currentPage, itemsPerPage])
+  
+  const { data: productsResponse, isLoading, error, refetch: originalRefetch } = useProducts(queryKey, paginationParams)
   const createProduct = useCreateProduct()
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
@@ -125,6 +132,13 @@ const ProductManagePage: React.FC = () => {
   }, [refetch])
 
   const products = useMemo(() => productsResponse?.data || [], [productsResponse?.data])
+  const pagination = useMemo(() => productsResponse?.pagination, [productsResponse?.pagination])
+
+  // 페이지 변경 핸들러
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
 
   // 상품 등록
   const handleCreateProduct = useCallback(async (productData: ProductFormData) => {
@@ -174,7 +188,6 @@ const ProductManagePage: React.FC = () => {
 
   // 상품 삭제
   const handleDeleteProduct = useCallback(async (id: number) => {
-    if (!window.confirm('정말로 이 상품을 삭제하시겠습니까?\n삭제된 상품은 복구할 수 없습니다.')) return
     try {
       const result = await deleteProduct.mutateAsync(id)
       if (result.error) {
@@ -337,6 +350,7 @@ const ProductManagePage: React.FC = () => {
                       const v = e.target.value
                       console.log('점포 선택 변경:', v)
                       setSelectedStoreId(v ? Number(v) : undefined)
+                      setCurrentPage(1) // 점포 변경 시 페이지 리셋
                     }}
                   >
                     <option value="">전체 점포 ({stores.length}개)</option>
@@ -422,32 +436,22 @@ const ProductManagePage: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             <div className="dalkomne-card p-4 text-center">
-              <div className="text-3xl mb-2">📦</div>
-              <p className="text-2xl font-bold" style={{ color: 'var(--dalkomne-orange)' }}>{products.length}</p>
+              <p className="text-2xl font-bold text-black">{products.length}</p>
               <p className="text-sm" style={{ color: 'var(--gray-600)' }}>총 상품 수</p>
             </div>
             <div className="dalkomne-card p-4 text-center">
-              <div className="text-3xl mb-2">✅</div>
-              <p className="text-2xl font-bold" style={{ color: 'var(--success)' }}>
+              <p className="text-2xl font-bold text-black">
                 {products.filter(p => !p.is_soldout).length}
               </p>
               <p className="text-sm" style={{ color: 'var(--gray-600)' }}>판매 중</p>
             </div>
             <div className="dalkomne-card p-4 text-center">
-              <div className="text-3xl mb-2">❌</div>
-              <p className="text-2xl font-bold" style={{ color: 'var(--error)' }}>
+              <p className="text-2xl font-bold text-black">
                 {products.filter(p => p.is_soldout).length}
               </p>
               <p className="text-sm" style={{ color: 'var(--gray-600)' }}>품절</p>
-            </div>
-            <div className="dalkomne-card p-4 text-center">
-              <div className="text-3xl mb-2">📊</div>
-              <p className="text-2xl font-bold" style={{ color: 'var(--dalkomne-orange)' }}>
-                {products.reduce((sum, p) => sum + p.quantity, 0)}
-              </p>
-              <p className="text-sm" style={{ color: 'var(--gray-600)' }}>총 재고</p>
             </div>
           </div>
         )}
@@ -458,7 +462,6 @@ const ProductManagePage: React.FC = () => {
             <div className="text-2xl">🛍️</div>
             <div>
               <h3 className="text-lg font-bold" style={{ color: 'var(--gray-900)' }}>등록된 상품</h3>
-              <p className="text-sm" style={{ color: 'var(--gray-600)' }}>상품을 클릭하여 수정하거나 상태를 변경하세요</p>
             </div>
           </div>
 
@@ -469,14 +472,29 @@ const ProductManagePage: React.FC = () => {
               ))}
             </div>
           ) : (
-            <ProductList
-              products={products}
-              isLoading={isLoading}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteProduct}
-              onToggleSoldOut={handleToggleSoldOut}
-              onRefresh={refetch}
-            />
+            <>
+              <ProductList
+                products={products}
+                isLoading={isLoading}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteProduct}
+                onToggleSoldOut={handleToggleSoldOut}
+                onRefresh={refetch}
+              />
+              
+              {/* 페이지네이션 */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="mt-8">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.total}
+                    itemsPerPage={pagination.limit}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
 

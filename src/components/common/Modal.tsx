@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Button from './Button'
 
 export interface ModalProps {
@@ -27,6 +28,20 @@ const Modal: React.FC<ModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
+      
+      // ESC 키로 모달 닫기
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          onClose()
+        }
+      }
+      
+      document.addEventListener('keydown', handleKeyDown)
+      
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown)
+        document.body.style.overflow = 'unset'
+      }
     } else {
       document.body.style.overflow = 'unset'
     }
@@ -34,7 +49,7 @@ const Modal: React.FC<ModalProps> = ({
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [isOpen])
+  }, [isOpen, onClose])
   
   if (!isOpen) return null
   
@@ -44,9 +59,33 @@ const Modal: React.FC<ModalProps> = ({
     lg: 'max-w-2xl'
   }
   
-  return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-start sm:items-center justify-center p-2 sm:p-4">
-      <div className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} mt-4 sm:mt-0 max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col`}>
+  const modalContent = (
+    <div 
+      className="fixed inset-0 overflow-auto bg-black bg-opacity-50 flex items-center justify-center p-4"
+      onClick={(e) => {
+        // 배경 클릭 시 모달 닫기
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+      style={{ 
+        zIndex: 99999,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0
+      }}
+    >
+      <div 
+        className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden flex flex-col relative`}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          zIndex: 100000,
+          maxWidth: size === 'sm' ? '28rem' : size === 'md' ? '32rem' : '48rem'
+        }}
+      >
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex-shrink-0 bg-white sticky top-0 z-10">
           <div className="flex items-center justify-between min-h-[24px]">
             {title ? (
@@ -90,6 +129,9 @@ const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   )
+  
+  // Portal을 사용하여 body에 직접 렌더링
+  return createPortal(modalContent, document.body)
 }
 
 export default Modal

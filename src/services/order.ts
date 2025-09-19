@@ -9,8 +9,28 @@ import {
 import { PostgrestError } from '@supabase/supabase-js'
 import { CreateOrderData, Order, OrderItem, Apartment, ApartmentUnit } from '../types/order'
 
+// 페이지네이션 타입 정의
+interface PaginationParams {
+  page?: number
+  limit?: number
+}
+
+interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  error: string | null
+}
+
 const getErrorMessage = (e: unknown, fallback: string) =>
   e instanceof Error ? e.message : fallback
+
+// 타입 export
+export type { PaginationParams, PaginatedResponse }
 
 export const orderService = {
   // 아파트 검색
@@ -143,18 +163,56 @@ export const orderService = {
     }
   },
 
-  // 주문 목록 조회 (관리자용)
-  async getOrders(storeId?: number) {
+  // 주문 목록 조회 (관리자용 - 페이지네이션 지원)
+  async getOrders(
+    storeId?: number, 
+    pagination?: PaginationParams
+  ): Promise<PaginatedResponse<any>> {
     try {
-      const { data, error } = await viewsTable.selectOrderView(storeId)
+      const page = pagination?.page || 1
+      const limit = pagination?.limit || 15
+      const offset = (page - 1) * limit
 
-      if (error) {
-        return { data: null, error: (error as PostgrestError).message }
+      // Supabase 직접 사용하여 페이지네이션 구현
+      const { supabase } = await import('./supabase')
+      
+      let query = supabase
+        .from('order_view')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+
+      // 점포 필터 적용
+      if (storeId) {
+        query = query.eq('store_id', storeId)
       }
 
-      return { data, error: null }
+      // 페이지네이션 적용
+      query = query.range(offset, offset + limit - 1)
+
+      const { data, error, count } = await query
+
+      if (error) {
+        return {
+          data: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+          error: error.message
+        }
+      }
+
+      const total = count || 0
+      const totalPages = Math.ceil(total / limit)
+
+      return {
+        data: data || [],
+        pagination: { page, limit, total, totalPages },
+        error: null
+      }
     } catch (e) {
-      return { data: null, error: getErrorMessage(e, '주문 목록을 가져오는 중 오류가 발생했습니다.') }
+      return {
+        data: [],
+        pagination: { page: 1, limit: 15, total: 0, totalPages: 0 },
+        error: getErrorMessage(e, '주문 목록을 가져오는 중 오류가 발생했습니다.')
+      }
     }
   },
 

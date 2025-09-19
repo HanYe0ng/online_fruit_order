@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { productService } from '../services/products'
+import { productService, PaginationParams } from '../services/products'
 import { ProductFormData, ProductFilters } from '../types/product'
 import { PostgrestError } from '@supabase/supabase-js'
 
@@ -35,10 +35,10 @@ const withAuthRecovery = async <T>(fn: () => Promise<T>): Promise<T> => {
   }
 }
 
-export const useProducts = (filters?: ProductFilters) => {
+export const useProducts = (filters?: ProductFilters, pagination?: PaginationParams) => {
   return useQuery({
-    queryKey: ['products', filters],
-    queryFn: () => withAuthRecovery(() => productService.getProducts(filters)),
+    queryKey: ['products', filters, pagination],
+    queryFn: () => withAuthRecovery(() => productService.getProducts(filters, pagination)),
     retry: (failureCount, error: any) => {
       if (isAuthError(error)) return false // 인증 오류는 여기서 재시도 안 함
       return failureCount < 5

@@ -56,7 +56,6 @@ const ProductList: React.FC<ProductListProps> = ({
 
   // 모달 닫기 처리
   const handleDeleteModalClose = useCallback(() => {
-    console.log('❌ 삭제 모달 닫기')
     setDeleteModal({ isOpen: false, productId: null })
   }, [])
 

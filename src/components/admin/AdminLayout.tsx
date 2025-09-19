@@ -52,9 +52,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const isActive = (path: string) => location.pathname === path
 
   const navItems = [
-    { path: ROUTES.ADMIN_DASHBOARD, label: '대시보드', icon: '📊', desc: '매출 현황 및 통계' },
+    { path: ROUTES.ADMIN_PRODUCTS, label: '상품 관리', icon: '🛍️', desc: '상품 등록 및 수정' },
     { path: ROUTES.ADMIN_ORDERS, label: '주문 관리', icon: '📋', desc: '주문 확인 및 처리' },
-    { path: ROUTES.ADMIN_PRODUCTS, label: '상품 관리', icon: '🛍️', desc: '상품 등록 및 수정' }
+    { path: ROUTES.ADMIN_DASHBOARD, label: '대시보드', icon: '📊', desc: '매출 현황 및 통계' },
   ]
 
   return (

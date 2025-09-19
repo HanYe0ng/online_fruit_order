@@ -15,23 +15,31 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onDelete,
   onToggleSoldOut
 }) => {
-  const handleEditClick = useCallback(() => {
+  const handleEditClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
     console.log('✏️ 수정 클릭:', product.id)
     onEdit(product)
   }, [product, onEdit])
 
-  const handleDeleteClick = useCallback(() => {
-    console.log('🗑️ 삭제 클릭:', product.id)
+  const handleDeleteClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
     onDelete(product.id)
   }, [product.id, onDelete])
 
-  const handleToggleSoldOut = useCallback(() => {
+  const handleToggleSoldOut = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
     console.log('🔄 품절 토글:', product.id, !product.is_soldout)
     onToggleSoldOut(product.id, !product.is_soldout)
   }, [product.id, product.is_soldout, onToggleSoldOut])
 
   return (
-    <Card className={`relative transition-opacity duration-200 ${product.is_soldout ? 'opacity-75' : ''}`}>
+    <Card 
+      className={`relative transition-opacity duration-200 ${product.is_soldout ? 'opacity-75' : ''}`}
+      hover={false}
+    >
       {/* 상품 이미지 */}
       <div className="w-full h-48 bg-gray-100 rounded-lg mb-4 overflow-hidden relative">
         {/* 품절 오버레이 - 이미지 영역에만 적용 */}
@@ -48,6 +56,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             src={product.image_url}
             alt={product.name}
             className="w-full h-full object-cover"
+            draggable={false}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -71,12 +80,30 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {(product.category || 'today') === 'gift' ? '🎁 선물' : '🍎 오늘'}
           </span>
         </div>
-        <p className={`text-lg font-bold ${product.is_soldout ? 'text-gray-400 line-through' : 'text-blue-600'}`}>
-          {product.price.toLocaleString()}원
-          {product.is_soldout && (
-            <span className="ml-2 text-sm font-medium text-red-500">🚫 품절</span>
+        <div className="space-y-1">
+          {/* 할인가가 있는 경우 */}
+          {product.discount_price && product.discount_price < product.price ? (
+            <div className="flex items-baseline space-x-2">
+              <span className={`text-lg font-bold ${product.is_soldout ? 'text-gray-400' : 'text-red-600'}`}>
+                {product.discount_price.toLocaleString()}원
+              </span>
+              <span className={`text-sm line-through ${product.is_soldout ? 'text-gray-400' : 'text-gray-500'}`}>
+                {product.price.toLocaleString()}원
+              </span>
+              <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-xs font-medium">
+                {Math.round((1 - product.discount_price / product.price) * 100)}% 할인
+              </span>
+            </div>
+          ) : (
+            /* 일반 가격 */
+            <p className={`text-lg font-bold ${product.is_soldout ? 'text-gray-400 line-through' : 'text-blue-600'}`}>
+              {product.price.toLocaleString()}원
+            </p>
           )}
-        </p>
+          {product.is_soldout && (
+            <span className="text-sm font-medium text-red-500">🚫 품절</span>
+          )}
+        </div>
         <p className={`text-sm ${product.is_soldout ? 'text-gray-400' : 'text-gray-600'}`}>
           재고: {product.quantity}개
         </p>
@@ -128,6 +155,7 @@ const areEqual = (prevProps: ProductCardProps, nextProps: ProductCardProps) => {
     prevProduct.id !== nextProduct.id ||
     prevProduct.name !== nextProduct.name ||
     prevProduct.price !== nextProduct.price ||
+    prevProduct.discount_price !== nextProduct.discount_price ||
     prevProduct.quantity !== nextProduct.quantity ||
     prevProduct.is_soldout !== nextProduct.is_soldout ||
     prevProduct.category !== nextProduct.category ||

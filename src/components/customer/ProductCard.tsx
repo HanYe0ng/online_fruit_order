@@ -105,7 +105,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           
           {/* 가격 */}
           <div className="space-y-1">
-            {product.discount_price ? (
+            {product.discount_price && product.discount_price < product.price ? (
               // 할인가가 있는 경우
               <div className="space-y-1">
                 <div className="flex items-center space-x-1 xs:space-x-2">
@@ -123,7 +123,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
                       fontSize: '10px'
                     }}
                   >
-                    {product.discount_rate ? `${product.discount_rate}%` : 'SALE'}
+                    {Math.round((1 - product.discount_price / product.price) * 100)}% 할인
                   </span>
                 </div>
                 <p 

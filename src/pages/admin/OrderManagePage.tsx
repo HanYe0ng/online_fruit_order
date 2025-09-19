@@ -66,35 +66,6 @@ const OrderManagePage: React.FC = () => {
   return (
     <AdminLayout>
 
-      {/* 실시간 상태 카드 */}
-      <div className="dalkomne-card p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div 
-              className="w-12 h-12 rounded-full flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, var(--dalkomne-orange) 0%, var(--dalkomne-orange-dark) 100%)' }}
-            >
-              <span className="text-white text-xl">🔄</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold" style={{ color: 'var(--gray-900)' }}>실시간 주문 현황</h3>
-              <p className="text-sm" style={{ color: 'var(--gray-600)' }}>자동 새로고침: 30초마다</p>
-            </div>
-          </div>
-          <button
-            onClick={() => refetch()}
-            className="dalkomne-button-primary flex items-center space-x-2"
-            style={{ fontSize: '14px' }}
-          >
-            <span>🔄</span>
-            <span>수동 새로고침</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 통계 카드 */}
-      <OrderStats orders={orders} />
-
       {/* 필터 */}
       <OrderFilters
         selectedStatus={selectedStatus}
@@ -150,12 +121,14 @@ const OrderManagePage: React.FC = () => {
                     ? '다른 검색어를 시도해보세요.'
                     : '새로운 주문이 들어오면 여기에 표시됩니다!'}
                 </p>
-                <button 
-                  onClick={() => refetch()}
-                  className="dalkomne-button-primary"
-                >
-                  새로고침
-                </button>
+                <div className="flex justify-center">
+                  <button 
+                    onClick={() => refetch()}
+                    className="dalkomne-button-primary"
+                  >
+                    새로고침
+                  </button>
+                </div>
               </div>
             )}
           </>
