@@ -199,6 +199,7 @@ export interface Database {
           storage_info?: string | null
           origin?: string | null
           description_detail?: string | null
+          detail_image_url?: string | null
           created_at: string
         }
         Insert: {
@@ -213,6 +214,7 @@ export interface Database {
           storage_info?: string | null
           origin?: string | null
           description_detail?: string | null
+          detail_image_url?: string | null
           created_at?: string
         }
         Update: {
@@ -227,6 +229,7 @@ export interface Database {
           storage_info?: string | null
           origin?: string | null
           description_detail?: string | null
+          detail_image_url?: string | null
           created_at?: string
         }
       }
@@ -256,7 +259,8 @@ export interface Database {
           original_price?: number | null
           discount_rate?: number | null
           quantity: number
-          image_url: string | null
+          thumbnail_image_url: string | null
+          detail_image_url?: string | null
           is_soldout: boolean
           tags?: string[] | null
           rating?: number | null

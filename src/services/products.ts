@@ -1,6 +1,10 @@
 // src/services/products.ts
 import { supabase } from './supabase'
 import { Product, ProductFormData, ProductFilters } from '../types/product'
+import { detectInAppBrowser } from '../utils/browserDetection'
+import { getInAppOptimizationSettings } from '../utils/inAppOptimization'
+import { shouldBypassStorageUpload, prepareImageForDatabase } from '../utils/inAppImageUtils'
+import { getNextDisplayOrder } from './productOrder'
 
 // 페이지네이션 타입 정의
 interface PaginationParams {
@@ -18,12 +22,6 @@ interface PaginatedResponse<T> {
   }
   error: string | null
 }
-import { detectInAppBrowser } from '../utils/browserDetection'
-import { getInAppOptimizationSettings } from '../utils/inAppOptimization'
-import { shouldBypassStorageUpload, prepareImageForDatabase } from '../utils/inAppImageUtils'
-import { getNextDisplayOrder } from './productOrder'
-
-// 타입 export
 export type { PaginationParams, PaginatedResponse }
 
 export const productService = {
@@ -107,11 +105,12 @@ export const productService = {
 
       let imageUrl: string | null = null
       let imageBase64Data: any = null
+      let detailImageUrl: string | null = null
 
-      // 이미지 처리
+      // 썸네일 이미지 처리
       if (productData.image) {
         if (productData.image.size > settings.maxFileSize) {
-          return { data: null, error: `파일이 너무 큽니다. ${Math.round(settings.maxFileSize / 1024 / 1024)}MB 이하로 선택해주세요.` }
+          return { data: null, error: `썸네일 이미지가 너무 큽니다. ${Math.round(settings.maxFileSize / 1024 / 1024)}MB 이하로 선택해주세요.` }
         }
 
         // 인앱 우회(Base64 직저장) 옵션
@@ -148,10 +147,37 @@ export const productService = {
         }
       }
 
+      // 상세페이지 이미지 처리 (과일선물 카테고리일 때만)
+      if (productData.category === 'gift' && productData.detail_image) {
+        if (productData.detail_image.size > settings.maxFileSize) {
+          return { data: null, error: `상세페이지 이미지가 너무 큽니다. ${Math.round(settings.maxFileSize / 1024 / 1024)}MB 이하로 선택해주세요.` }
+        }
+
+        const ext = productData.detail_image.name.split('.').pop() || 'jpg'
+        const key = `products/detail/${crypto.randomUUID()}.${ext}`
+
+        const doUpload = async () =>
+          supabase.storage
+            .from('product-images')
+            .upload(key, productData.detail_image!, {
+              contentType: productData.detail_image!.type,
+              cacheControl: '3600',
+              upsert: false,
+            })
+
+        let up = await doUpload()
+        if (up.error) up = await doUpload()
+        if (up.error) return { data: null, error: `상세페이지 이미지 업로드 실패: ${up.error.message}` }
+
+        const { data: pub } = supabase.storage.from('product-images').getPublicUrl(key)
+        if (!pub?.publicUrl) return { data: null, error: '상세페이지 이미지 URL 생성에 실패했습니다.' }
+        detailImageUrl = pub.publicUrl
+      }
+
       // 다음 순서 번호 자동 할당
       const displayOrder = await getNextDisplayOrder(storeId)
 
-      // DB 저장(재시도 없음)
+      // 상품 DB 저장
       const insertData: Record<string, any> = {
         store_id: storeId,
         name: productData.name?.trim(),
@@ -168,10 +194,25 @@ export const productService = {
         insertData.image_original_name = imageBase64Data.originalName
       }
 
-      const { data, error } = await (supabase as any).from('products').insert(insertData).select().single()
+      const { data: savedProduct, error } = await supabase.from('products').insert(insertData).select().single()
       if (error) return { data: null, error: `상품 저장 실패: ${error.message}` }
 
-      return { data, error: null }
+      // 과일선물 카테고리이고 상세페이지 이미지가 있으면 gift_product_details에도 저장
+      if (savedProduct.category === 'gift' && detailImageUrl) {
+        const { error: giftError } = await supabase
+          .from('gift_product_details')
+          .insert({
+            product_id: savedProduct.id,
+            detail_image_url: detailImageUrl
+          })
+        
+        if (giftError) {
+          console.warn('상세 정보 저장 실패:', giftError.message)
+          // 상세 정보 저장 실패는 치명적이지 않으므로 경고만
+        }
+      }
+
+      return { data: savedProduct, error: null }
     } catch (error) {
       let errorMessage = '상품 등록 중 오류가 발생했습니다.'
       if (error instanceof Error) errorMessage = error.message

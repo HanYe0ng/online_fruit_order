@@ -19,10 +19,10 @@ const Pagination: React.FC<PaginationProps> = ({
 }) => {
   if (totalPages <= 1) return null
 
-  const getVisiblePages = () => {
+  const getVisiblePages = (): (number | string)[] => {
     const delta = 2 // 현재 페이지 앞뒤로 보여줄 페이지 수
-    const range = []
-    const rangeWithDots = []
+    const range: number[] = []
+    const rangeWithDots: (number | string)[] = []
 
     // 시작과 끝 계산
     const start = Math.max(2, currentPage - delta)
@@ -93,7 +93,7 @@ const Pagination: React.FC<PaginationProps> = ({
               <span className="px-3 py-2 text-gray-400">...</span>
             ) : (
               <button
-                onClick={() => onPageChange(page as number)}
+                onClick={() => onPageChange(typeof page === 'string' ? parseInt(page, 10) : page)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   currentPage === page
                     ? 'bg-dalkomne-orange text-white shadow-sm'

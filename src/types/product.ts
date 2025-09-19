@@ -13,6 +13,7 @@ export interface ProductFormData {
   quantity: string
   category: 'today' | 'gift'
   image?: File | null
+  detail_image?: File | null // 상세페이지 이미지 추가
 }
 
 export interface ProductFilters {
@@ -33,6 +34,7 @@ export interface GiftProduct extends Product {
   nutritionInfo?: string // 영양 정보
   storageInfo?: string // 보관 방법
   origin?: string // 원산지
+  detailImageUrl?: string // 상세페이지 이미지 URL 추가
 }
 
 // 배송 옵션 타입

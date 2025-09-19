@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button, Card } from '../common'
 import { Product } from '../../types/product'
 import { useCartStore } from '../../stores/cartStore'
@@ -10,6 +11,7 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
+  const navigate = useNavigate()
   const addItem = useCartStore(state => state.addItem)
   const toast = useToast()
 
@@ -33,10 +35,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
     }
   }
 
+  const handleProductClick = () => {
+    navigate(`/product/${product.id}`)
+  }
+
   return (
     <div className="dalkomne-product-card h-full flex flex-col">
       {/* 상품 이미지 */}
-      <div className="w-full h-32 xs:h-36 sm:h-40 md:h-44 lg:h-48 bg-gray-50 overflow-hidden flex-shrink-0 relative">
+      <div 
+        className="w-full h-32 xs:h-36 sm:h-40 md:h-44 lg:h-48 bg-gray-50 overflow-hidden flex-shrink-0 relative cursor-pointer transition-transform hover:scale-105"
+        onClick={handleProductClick}
+      >
         {product.image_url ? (
           <>
             <img
@@ -85,10 +94,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
 
       {/* 상품 정보 */}
       <div className="flex-grow flex flex-col justify-between p-2 xs:p-3 sm:p-4">
-        <div className="space-y-1 sm:space-y-2 mb-2 xs:mb-3 sm:mb-4">
+        <div 
+          className="space-y-1 sm:space-y-2 mb-2 xs:mb-3 sm:mb-4 cursor-pointer"
+          onClick={handleProductClick}
+        >
           {/* 상품명 - 모바일에서 텍스트 오버플로우 방지 */}
           <h3 
-            className="font-semibold text-xs xs:text-sm sm:text-base leading-tight"
+            className="font-semibold text-xs xs:text-sm sm:text-base leading-tight hover:text-orange-600 transition-colors"
             style={{ 
               color: 'var(--gray-900)',
               display: '-webkit-box',

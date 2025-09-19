@@ -14,7 +14,9 @@ const GiftProductCard: React.FC<GiftProductCardProps> = ({ product }) => {
   }
 
   const handleClick = () => {
-    navigate(`/gift-product/${product.id}`)
+    // 실제 선물상품인지 일반상품인지 확인
+    // 임시로 모든 상품을 일반 상품 상세페이지로 이동
+    navigate(`/product/${product.id}`)
   }
 
   return (
