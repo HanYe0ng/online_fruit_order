@@ -208,8 +208,15 @@ const HomePage: React.FC = () => {
   
   // 카테고리 변경 시 페이지 리셋
   useEffect(() => {
+    console.log('📄 카테고리 변경으로 인한 페이지 리셋:', selectedCategory)
     setCurrentPage(1)
   }, [selectedCategory])
+
+  // 점포 변경 시 페이지 리셋  
+  useEffect(() => {
+    console.log('🏪 점포 변경으로 인한 페이지 리셋:', selectedStoreId)
+    setCurrentPage(1)
+  }, [selectedStoreId])
 
   const currentStoreName = useMemo(() => {
     const foundStore = (stores as Store[]).find((s: Store) => s.id === selectedStoreId)
@@ -221,6 +228,13 @@ const HomePage: React.FC = () => {
     updatePageTitle(PAGE_TITLES.HOME)
     updatePageDescription(PAGE_DESCRIPTIONS.HOME)
   }, [])
+
+  // 카테고리 변경 핸들러 - 페이지 리셋 포함
+  const handleCategoryChange = (category: 'today' | 'gift') => {
+    console.log('🏷️ 카테고리 변경:', category)
+    setSelectedCategory(category)
+    // setCurrentPage(1)는 useEffect에서 자동으로 처리됨
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--gray-50)' }}>
@@ -382,7 +396,7 @@ const HomePage: React.FC = () => {
               style={{ background: 'var(--gray-100)' }}
             >
               <button
-                onClick={() => setSelectedCategory('today')}
+                onClick={() => handleCategoryChange('today')}
                 className="px-6 py-3 rounded-full font-semibold transition-all duration-300"
                 style={{
                   background: selectedCategory === 'today' 
@@ -395,7 +409,7 @@ const HomePage: React.FC = () => {
                 🍎 오늘의 과일
               </button>
               <button
-                onClick={() => setSelectedCategory('gift')}
+                onClick={() => handleCategoryChange('gift')}
                 className="px-6 py-3 rounded-full font-semibold transition-all duration-300"
                 style={{
                   background: selectedCategory === 'gift' 

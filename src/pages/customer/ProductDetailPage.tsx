@@ -159,8 +159,6 @@ const ProductDetailPage: React.FC = () => {
                 alt={product.name}
                 className="w-full h-80 lg:h-96 object-cover rounded-lg"
               />
-              
-              {/* 상세 이미지는 추후 구현 예정 */}
             </div>
 
             <div className="space-y-6">

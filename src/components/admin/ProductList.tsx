@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Button, Input, Loading, Modal } from '../common'
 import { Product } from '../../types/product'
 import ProductCard from './ProductCard'
@@ -10,6 +10,7 @@ interface ProductListProps {
   onDelete: (id: number) => void
   onToggleSoldOut: (id: number, isSoldOut: boolean) => void
   onRefresh: () => void
+  onPageReset?: () => void
 }
 
 const ProductList: React.FC<ProductListProps> = ({
@@ -21,23 +22,15 @@ const ProductList: React.FC<ProductListProps> = ({
   onRefresh
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'today' | 'gift'>('all')
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; productId: number | null }>({
     isOpen: false,
     productId: null
   })
 
-  // 상품 필터링을 useMemo로 최적화
-  const filteredProducts = useMemo(() => {
-    if (!products || products.length === 0) return []
-    
-    return products.filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
-      const productCategory = product.category || 'today'
-      const matchesCategory = categoryFilter === 'all' || productCategory === categoryFilter
-      return matchesSearch && matchesCategory
-    })
-  }, [products, searchTerm, categoryFilter])
+  // 검색 필터링만 클라이언트에서 처리 (카테고리 필터링은 서버에서 처리)
+  const filteredProducts = products.filter(product => 
+    product.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   // 삭제 버튼 클릭 처리
   const handleDeleteClick = useCallback((productId: number) => {
@@ -59,11 +52,6 @@ const ProductList: React.FC<ProductListProps> = ({
     setDeleteModal({ isOpen: false, productId: null })
   }, [])
 
-  // 카테고리 필터 변경 처리
-  const handleCategoryChange = useCallback((category: 'all' | 'today' | 'gift') => {
-    setCategoryFilter(category)
-  }, [])
-
   // 검색어 변경 처리
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
@@ -75,45 +63,18 @@ const ProductList: React.FC<ProductListProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* 검색 및 필터 */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="flex-1 max-w-md">
-            <Input
-              placeholder="상품명으로 검색..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
-          </div>
-          <Button variant="outline" onClick={onRefresh}>
-            새로고침
-          </Button>
+      {/* 검색 */}
+      <div className="flex justify-between items-center">
+        <div className="flex-1 max-w-md">
+          <Input
+            placeholder="상품명으로 검색..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
         </div>
-        
-        {/* 카테고리 필터 */}
-        <div className="flex gap-2">
-          <Button
-            variant={categoryFilter === 'all' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => handleCategoryChange('all')}
-          >
-            전체
-          </Button>
-          <Button
-            variant={categoryFilter === 'today' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => handleCategoryChange('today')}
-          >
-            🍎 오늘의 과일
-          </Button>
-          <Button
-            variant={categoryFilter === 'gift' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => handleCategoryChange('gift')}
-          >
-            🎁 과일선물
-          </Button>
-        </div>
+        <Button variant="outline" onClick={onRefresh}>
+          새로고침
+        </Button>
       </div>
 
       {/* 상품 목록 */}
@@ -131,7 +92,9 @@ const ProductList: React.FC<ProductListProps> = ({
 
       {filteredProducts.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-500">등록된 상품이 없습니다.</p>
+          <p className="text-gray-500">
+            {searchTerm ? '검색 결과가 없습니다.' : '등록된 상품이 없습니다.'}
+          </p>
         </div>
       )}
 

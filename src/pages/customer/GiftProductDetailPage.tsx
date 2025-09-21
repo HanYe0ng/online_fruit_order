@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { GiftProduct, ProductDeliveryOption } from '../../types/product'
+import { GiftProduct, ProductDeliveryOption, Product } from '../../types/product'
 import { mockGiftProducts } from '../../data/mockData'
 import { fetchStores } from '../../services/stores'
 import { StoreInfo } from '../../types/product'
+import { directSupabaseCall } from '../../services/directSupabase'
 import { useCartStore } from '../../stores/cartStore'
 import { ROUTES } from '../../utils/constants'
 import { Modal } from '../../components/common'
@@ -47,10 +48,40 @@ const GiftProductDetailPage: React.FC = () => {
         
         // 상품 데이터 로드
         if (productId) {
-          const foundProduct = mockGiftProducts.find(p => p.id === Number(productId))
+          // 먼저 mockGiftProducts에서 찾기
+          let foundProduct = mockGiftProducts.find(p => p.id === Number(productId))
+          
+          // mockGiftProducts에 없으면 실제 DB에서 찾기
+          if (!foundProduct) {
+            try {
+              const dbProducts = await directSupabaseCall(`products?select=*&id=eq.${productId}`)
+              const dbProduct = (dbProducts as Product[])?.[0]
+              
+              if (dbProduct) {
+                // DB 상품을 GiftProduct 형태로 변환
+                foundProduct = {
+                  ...dbProduct,
+                  originalPrice: dbProduct.price + Math.floor(dbProduct.price * 0.1),
+                  discount: 10,
+                  description: dbProduct.name ? `신선한 ${dbProduct.name}을 선물로 전해보세요.` : '신선한 과일을 선물로 전해보세요.',
+                  tags: ['신선한', '선물용', '추천'],
+                  rating: 4.5 + Math.random() * 0.5,
+                  reviewCount: Math.floor(Math.random() * 50) + 10,
+                  images: dbProduct.image_url ? [dbProduct.image_url] : [],
+                  nutritionInfo: `영양가득한 ${dbProduct.name || '과일'}`,
+                  storageInfo: '서늘하고 통풍이 잘 되는 곳에 보관',
+                  origin: '국내산'
+                } as GiftProduct
+              }
+            } catch (error) {
+              console.error('DB에서 상품 로딩 오류:', error)
+            }
+          }
+          
           if (foundProduct) {
             setProduct(foundProduct)
           } else {
+            console.error('상품을 찾을 수 없습니다. ID:', productId)
             navigate(ROUTES.HOME)
           }
         }
@@ -416,7 +447,7 @@ const GiftProductDetailPage: React.FC = () => {
                 />
                 <div>
                   <div className="font-medium" style={{ color: 'var(--gray-900)' }}>
-                    배달 (구매자에게)
+                    배달 (잠실 내)
                   </div>
                   <div className="text-sm" style={{ color: 'var(--gray-600)' }}>
                     구매자 본인이 수령
@@ -435,7 +466,7 @@ const GiftProductDetailPage: React.FC = () => {
                 />
                 <div>
                   <div className="font-medium" style={{ color: 'var(--gray-900)' }}>
-                    택배 (선물 받는 분에게)
+                    택배 발송
                   </div>
                   <div className="text-sm" style={{ color: 'var(--gray-600)' }}>
                     받는 분의 주소로 배송

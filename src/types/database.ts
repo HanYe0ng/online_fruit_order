@@ -74,6 +74,7 @@ export interface Database {
           discount_rate: number | null
           quantity: number
           image_url: string | null
+          detail_image_url: string | null // 상세페이지 이미지 URL 추가
           is_soldout: boolean
           category: string // 필수로 변경
           display_order: number
@@ -88,6 +89,7 @@ export interface Database {
           discount_rate?: number | null
           quantity: number
           image_url?: string | null
+          detail_image_url?: string | null // 상세페이지 이미지 URL 추가
           is_soldout?: boolean
           category: string
           display_order?: number
@@ -102,6 +104,7 @@ export interface Database {
           discount_rate?: number | null
           quantity?: number
           image_url?: string | null
+          detail_image_url?: string | null // 상세페이지 이미지 URL 추가
           is_soldout?: boolean
           category?: string
           display_order?: number

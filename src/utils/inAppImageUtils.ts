@@ -74,23 +74,27 @@ export const resizeImageForInApp = (file: File, maxWidth: number = 800, quality:
 export const shouldBypassStorageUpload = (): boolean => {
   const browserInfo = detectInAppBrowser()
   
+  console.log('🔍 Storage 업로드 우회 체크:', {
+    browser: browserInfo.browser,
+    isInApp: browserInfo.isInApp,
+    nodeEnv: process.env.NODE_ENV,
+    bypassEnv: process.env.REACT_APP_BYPASS_STORAGE
+  })
+  
   // 개발 모드에서는 환경변수로 제어
   if (process.env.NODE_ENV === 'development') {
-    return process.env.REACT_APP_BYPASS_STORAGE === 'true'
+    const shouldBypass = process.env.REACT_APP_BYPASS_STORAGE === 'true'
+    console.log(`🛠️ 개발 모드: Storage 우회 = ${shouldBypass}`)
+    return shouldBypass
   }
   
-  // 카카오톡은 항상 우회
+  // 카카오톡만 우회 (다른 브라우저는 정상 Storage 사용)
   if (browserInfo.browser === 'kakao') {
     console.log('🟡 카카오톡 인앱브라우저: Storage 업로드 우회')
     return true
   }
   
-  // 다른 인앱브라우저도 우회 (필요시 개별 설정 가능)
-  if (browserInfo.isInApp) {
-    console.log('🟡 인앱브라우저: Storage 업로드 우회')
-    return true
-  }
-  
+  console.log('✅ 일반 브라우저: 정상 Storage 업로드 사용')
   return false
 }
 

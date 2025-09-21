@@ -4,9 +4,6 @@ import { ProductFormData, Product } from '../../types/product'
 import { compressImage, validateImageFile, formatFileSize, CompressionResult } from '../../utils/imageUtils'
 import { detectInAppBrowser } from '../../utils/browserDetection'
 import { getInAppOptimizationSettings } from '../../utils/inAppOptimization'
-import { supabase } from '../../services/supabase'
-import { alternativeApiClient } from '../../services/api/alternativeClient'
-import { prepareImageForDatabase } from '../../utils/inAppImageUtils'
 
 interface ProductFormProps {
   isOpen: boolean
@@ -32,26 +29,32 @@ const ProductForm: React.FC<ProductFormProps> = ({
     quantity: '',
     category: 'today',
     image: null,
-    detail_image: null // 상세페이지 이미지 추가
+    detail_image: null
   })
+
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
   const [detailPreview, setDetailPreview] = useState<string | null>(null)
   const [isCompressingThumbnail, setIsCompressingThumbnail] = useState(false)
   const [isCompressingDetail, setIsCompressingDetail] = useState(false)
   const [compressionProgress, setCompressionProgress] = useState({ thumbnail: 0, detail: 0 })
-  const [compressionInfo, setCompressionInfo] = useState<{ 
-    thumbnail: CompressionResult | null
-    detail: CompressionResult | null 
-  }>({ thumbnail: null, detail: null })
+  const [compressionInfo, setCompressionInfo] = useState<{ thumbnail: CompressionResult | null; detail: CompressionResult | null }>({
+    thumbnail: null,
+    detail: null
+  })
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
-  const [browserInfo] = useState(detectInAppBrowser())
+  const [browserInfo] = useState(() => {
+    const info = detectInAppBrowser()
+    const isDesktop = !(/android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent.toLowerCase()))
+    return { ...info, isDesktop }
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bypassImageProcessing, setBypassImageProcessing] = useState(false)
   const [isCameraOpen, setIsCameraOpen] = useState<'thumbnail' | 'detail' | null>(null)
+
   const thumbnailFileInputRef = useRef<HTMLInputElement | null>(null)
   const detailFileInputRef = useRef<HTMLInputElement | null>(null)
 
-  // 모달 열릴 때 초기화
+  // 모달 초기화
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
@@ -65,140 +68,106 @@ const ProductForm: React.FC<ProductFormProps> = ({
           detail_image: null
         })
         setThumbnailPreview(initialData.image_url || null)
-        // TODO: 초기 데이터에서 상세 이미지 URL 설정 필요
-        setDetailPreview(null)
+        setDetailPreview(initialData.detail_image_url || null)
       } else {
-        setFormData({
-          name: '',
-          price: '',
-          discount_price: null,
-          quantity: '',
-          category: 'today',
-          image: null,
-          detail_image: null
-        })
-        setThumbnailPreview(null)
-        setDetailPreview(null)
+        resetForm()
       }
-
-      setCompressionInfo({ thumbnail: null, detail: null })
-      setCompressionProgress({ thumbnail: 0, detail: 0 })
-      setErrors({})
-      setIsSubmitting(false)
-      setBypassImageProcessing(false)
-      setIsCameraOpen(null)
-      if (thumbnailFileInputRef.current) thumbnailFileInputRef.current.value = ''
-      if (detailFileInputRef.current) detailFileInputRef.current.value = ''
     }
   }, [isOpen, initialData])
 
-  // 카메라 촬영 완료
-  const handleCameraCapture = async (file: File) => {
-    if (isCameraOpen === 'thumbnail') {
-      await processImageFile(file, 'thumbnail')
-    } else if (isCameraOpen === 'detail') {
-      await processImageFile(file, 'detail')
-    }
-    setIsCameraOpen(null)
-  }
-
-  const handleCameraError = (error: string) => {
-    setErrors(prev => ({ ...prev, image: error }))
-    setIsCameraOpen(null)
-  }
-
   // 이미지 파일 처리
   const processImageFile = async (file: File, type: 'thumbnail' | 'detail') => {
-    const settings = getInAppOptimizationSettings()
+    console.log(`🖼️ 이미지 처리 시작 (${type}):`, {
+      fileName: file.name,
+      fileSize: formatFileSize(file.size),
+      fileType: file.type,
+      platform: browserInfo.isDesktop ? 'desktop' : 'mobile'
+    })
+
     const validation = validateImageFile(file)
     if (!validation.isValid) {
       setErrors(prev => ({ ...prev, [type === 'thumbnail' ? 'image' : 'detail_image']: validation.error || '' }))
       return
     }
 
-    setErrors(prev => ({ ...prev, [type === 'thumbnail' ? 'image' : 'detail_image']: '' }))
-    
-    if (type === 'thumbnail') {
-      setIsCompressingThumbnail(true)
-      setCompressionProgress(prev => ({ ...prev, thumbnail: 0 }))
-    } else {
-      setIsCompressingDetail(true)
-      setCompressionProgress(prev => ({ ...prev, detail: 0 }))
+    // 에러 초기화
+    const errorKey = type === 'thumbnail' ? 'image' : 'detail_image'
+    setErrors(prev => ({ ...prev, [errorKey]: '' }))
+
+    const setCompressing = type === 'thumbnail' ? setIsCompressingThumbnail : setIsCompressingDetail
+    const setProgress = (val: number) => {
+      setCompressionProgress(prev => ({ ...prev, [type]: val }))
     }
 
-    try {
-      if (bypassImageProcessing) {
-        const progress = type === 'thumbnail' ? 'thumbnail' : 'detail'
-        setCompressionProgress(prev => ({ ...prev, [progress]: 100 }))
-        const result: CompressionResult = {
-          file,
-          originalSize: file.size,
-          compressedSize: file.size,
-          compressionRatio: 0
-        }
-        setCompressionInfo(prev => ({ ...prev, [progress]: result }))
-        
-        if (type === 'thumbnail') {
-          setFormData(prev => ({ ...prev, image: file }))
-        } else {
-          setFormData(prev => ({ ...prev, detail_image: file }))
-        }
-        
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            if (type === 'thumbnail') {
-              setThumbnailPreview(e.target.result as string)
-            } else {
-              setDetailPreview(e.target.result as string)
-            }
-          }
-        }
-        reader.readAsDataURL(file)
-        return
-      }
+    setCompressing(true)
+    setProgress(0)
 
-      const result = await compressImage(file, {}, (progress) => {
-        if (type === 'thumbnail') {
-          setCompressionProgress(prev => ({ ...prev, thumbnail: Math.round(progress) }))
-        } else {
-          setCompressionProgress(prev => ({ ...prev, detail: Math.round(progress) }))
-        }
-      })
+    try {
+      // 미리보기 즉시 표시
+      const objectURL = URL.createObjectURL(file)
+      type === 'thumbnail' ? setThumbnailPreview(objectURL) : setDetailPreview(objectURL)
+
+      let result: CompressionResult
+      
+      // 🔧 데스크탑에서 작은 파일은 압축 생략
+      const fileSizeMB = file.size / (1024 * 1024)
+      const shouldSkipCompression = bypassImageProcessing || 
+        (browserInfo.isDesktop && fileSizeMB < 2) || 
+        fileSizeMB < 0.5
+      
+      if (shouldSkipCompression) {
+        console.log(`📝 압축 생략 (파일이 충분히 작음: ${formatFileSize(file.size)})`) 
+        setProgress(100)
+        result = { file, originalSize: file.size, compressedSize: file.size, compressionRatio: 0 }
+      } else {
+        console.log(`🔄 이미지 압축 시작: ${formatFileSize(file.size)}`)
+        // 🔧 데스크탑에서 더 관대한 압축 옵션 사용
+        const compressionOptions = browserInfo.isDesktop ? {
+          maxSizeMB: fileSizeMB > 10 ? 2 : 1,
+          maxWidthOrHeight: 1000,
+          useWebWorker: false, // 데스크탑에서도 Web Worker 비활성화
+          initialQuality: 0.85
+        } : {}
+        
+        result = await compressImage(file, compressionOptions, progress => setProgress(Math.round(progress)))
+      }
 
       setCompressionInfo(prev => ({ ...prev, [type]: result }))
+      setFormData(prev => ({ ...prev, [type === 'thumbnail' ? 'image' : 'detail_image']: result.file }))
+      console.log(`✅ 이미지 처리 완료 (${type}):`, {
+        originalSize: formatFileSize(result.originalSize),
+        compressedSize: formatFileSize(result.compressedSize),
+        compressionRatio: result.compressionRatio
+      })
+
+    } catch (error: any) {
+      console.error(`❌ 이미지 처리 실패 (${type}):`, error)
+      const key = type === 'thumbnail' ? 'image' : 'detail_image'
       
-      if (type === 'thumbnail') {
-        setFormData(prev => ({ ...prev, image: result.file }))
-      } else {
-        setFormData(prev => ({ ...prev, detail_image: result.file }))
+      // 🔧 더 자세한 에러 메시지
+      let errorMessage = '이미지 처리 중 오류가 발생했습니다.'
+      
+      if (error?.message?.includes('파일이 너무 큽니다')) {
+        errorMessage = error.message
+      } else if (error?.name === 'InvalidStateError') {
+        errorMessage = '파일이 손상되었거나 지원되지 않는 형식입니다.'
+      } else if (error?.message?.includes('compression')) {
+        errorMessage = '이미지 압축 중 오류가 발생했습니다. 다른 이미지를 시도해보세요.'
+      } else if (browserInfo.isDesktop) {
+        errorMessage = '데스크탑에서 이미지 처리 중 오류가 발생했습니다. 파일을 다시 선택해보세요.'
       }
       
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          if (type === 'thumbnail') {
-            setThumbnailPreview(e.target.result as string)
-          } else {
-            setDetailPreview(e.target.result as string)
-          }
-        }
-      }
-      reader.readAsDataURL(result.file)
-    } catch (error) {
-      const errorKey = type === 'thumbnail' ? 'image' : 'detail_image'
-      setErrors(prev => ({ ...prev, [errorKey]: '이미지 처리 중 오류가 발생했습니다.' }))
+      setErrors(prev => ({ ...prev, [key]: errorMessage }))
+      
+      // 미리보기 제거
+      type === 'thumbnail' ? setThumbnailPreview(null) : setDetailPreview(null)
     } finally {
-      if (type === 'thumbnail') {
-        setIsCompressingThumbnail(false)
-        setCompressionProgress(prev => ({ ...prev, thumbnail: 0 }))
-      } else {
-        setIsCompressingDetail(false)
-        setCompressionProgress(prev => ({ ...prev, detail: 0 }))
-      }
+      setCompressing(false)
+      setProgress(0)
     }
   }
 
+  // 파일 input 이벤트 핸들러
   const handleThumbnailImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) await processImageFile(file, 'thumbnail')
@@ -209,7 +178,18 @@ const ProductForm: React.FC<ProductFormProps> = ({
     if (file) await processImageFile(file, 'detail')
   }
 
-  // 검증
+  // 카메라 캡처
+  const handleCameraCapture = async (file: File) => {
+    if (isCameraOpen) await processImageFile(file, isCameraOpen)
+    setIsCameraOpen(null)
+  }
+
+  const handleCameraError = (error: string) => {
+    setErrors(prev => ({ ...prev, image: error }))
+    setIsCameraOpen(null)
+  }
+
+  // 폼 검증
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {}
     const priceValue = parseInt(formData.price || '0', 10)
@@ -223,48 +203,24 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
     if (quantityValue < 0) newErrors.quantity = '수량은 0 이상이어야 합니다.'
 
-    // 과일선물 카테고리의 경우 두 이미지 모두 필요
     if (formData.category === 'gift') {
-      if (!formData.image && !thumbnailPreview) {
-        newErrors.image = '썸네일 이미지는 필수입니다.'
-      }
-      if (!formData.detail_image && !detailPreview) {
-        newErrors.detail_image = '상세페이지 이미지는 필수입니다.'
-      }
+      if (!formData.image) newErrors.image = '썸네일 이미지는 필수입니다.'
+      if (!formData.detail_image) newErrors.detail_image = '상세페이지 이미지는 필수입니다.'
     }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
+  // 제출
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validateForm()) return
-    if (isSubmitting || isLoading) return
+    if (!validateForm() || isSubmitting || isLoading) return
 
     setIsSubmitting(true)
     try {
       await onSubmit(formData)
-      if (!initialData) {
-        setFormData({
-          name: '',
-          price: '',
-          discount_price: null,
-          quantity: '',
-          category: 'today',
-          image: null,
-          detail_image: null
-        })
-        setThumbnailPreview(null)
-        setDetailPreview(null)
-        setCompressionInfo({ thumbnail: null, detail: null })
-        setCompressionProgress({ thumbnail: 0, detail: 0 })
-        setErrors({})
-        setBypassImageProcessing(false)
-        setIsCameraOpen(null)
-        if (thumbnailFileInputRef.current) thumbnailFileInputRef.current.value = ''
-        if (detailFileInputRef.current) detailFileInputRef.current.value = ''
-      }
+      if (!initialData) resetForm()
     } catch (error) {
       console.error('폼 제출 오류:', error)
     } finally {
@@ -304,13 +260,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const isGiftCategory = formData.category === 'gift'
 
   // 이미지 업로드 컴포넌트
-  const ImageUploadSection = ({ 
-    type, 
-    title, 
-    preview, 
-    isCompressing, 
-    compressionProgress, 
-    compressionInfo, 
+  const ImageUploadSection = ({
+    type,
+    title,
+    preview,
+    isCompressing,
+    compressionProgress,
+    compressionInfo,
     error,
     fileInputRef,
     onImageChange,
@@ -343,13 +299,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
           )}
         </div>
         <div className="flex-1">
+          {/* 숨겨진 input */}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
             onChange={onImageChange}
-            className="hidden"
-            disabled={isCompressing || actuallyLoading}
+            hidden
           />
           <div className="flex gap-2 mb-2">
             <Button
@@ -372,7 +328,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
             </Button>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            JPG, PNG, WEBP 파일 (최대 {browserInfo.browser === 'kakao' ? '10MB' : '20MB'})
+            JPG, PNG, WEBP 파일 (최대 {browserInfo.isDesktop ? '25MB' : browserInfo.browser === 'kakao' ? '10MB' : '20MB'})
+            {browserInfo.isDesktop && <span className="text-green-600"> • 데스크탑 모드</span>}
           </p>
           {compressionInfo && (
             <div className="mt-2 p-2 bg-green-50 rounded-md text-xs text-green-700">
@@ -380,6 +337,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
               <div className="text-green-600">
                 <p>원본: {formatFileSize(compressionInfo.originalSize)}</p>
                 <p>최적화: {formatFileSize(compressionInfo.compressedSize)}</p>
+                {compressionInfo.compressionRatio > 0 && (
+                  <p>절약: {compressionInfo.compressionRatio}%</p>
+                )}
               </div>
             </div>
           )}
@@ -437,11 +397,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
           onCameraClick={() => setIsCameraOpen('thumbnail')}
         />
 
-        {/* 상세페이지 이미지 업로드 (과일선물일 때만) */}
+        {/* 상세페이지 이미지 업로드 (gift 전용) */}
         {isGiftCategory && (
           <ImageUploadSection
             type="detail"
-            title="상세페이지 이미지 (모바일 크기에 맞춘 세로형)"
+            title="상세페이지 이미지 (모바일 크기 세로형)"
             preview={detailPreview}
             isCompressing={isCompressingDetail}
             compressionProgress={compressionProgress.detail}
@@ -486,11 +446,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
             const value = e.target.value
             setFormData(prev => ({ ...prev, discount_price: value || null }))
           }}
-          onFocus={(e) => {
-            if (!formData.discount_price) {
-              e.target.value = ''
-            }
-          }}
           placeholder="할인가를 입력하세요 (선택사항)"
           error={errors.discount_price}
           disabled={actuallyLoading}
@@ -512,18 +467,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
         {/* 안내 메시지 */}
         {isGiftCategory && (
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="flex items-start space-x-2">
-              <span className="text-purple-600 text-lg">💡</span>
-              <div className="text-sm text-purple-800">
-                <p className="font-medium mb-1">과일선물 상품 등록 안내</p>
-                <ul className="text-xs space-y-1 text-purple-700">
-                  <li>• <strong>썸네일 이미지:</strong> 홈 화면 상품 목록에서 보이는 이미지</li>
-                  <li>• <strong>상세페이지 이미지:</strong> 상품 클릭 시 보이는 세로형 상세 이미지</li>
-                  <li>• 두 이미지 모두 업로드해야 상품 등록이 완료됩니다</li>
-                </ul>
-              </div>
-            </div>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-800">
+            <p className="font-medium mb-1">과일선물 상품 등록 안내</p>
+            <ul className="text-xs space-y-1 text-purple-700">
+              <li>• <strong>썸네일 이미지:</strong> 홈 화면 상품 목록 이미지</li>
+              <li>• <strong>상세페이지 이미지:</strong> 상품 클릭 시 표시되는 세로형 이미지</li>
+              <li>• 두 이미지 모두 업로드해야 등록이 완료됩니다</li>
+            </ul>
           </div>
         )}
 

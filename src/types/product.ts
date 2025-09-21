@@ -34,7 +34,8 @@ export interface GiftProduct extends Product {
   nutritionInfo?: string // 영양 정보
   storageInfo?: string // 보관 방법
   origin?: string // 원산지
-  detailImageUrl?: string // 상세페이지 이미지 URL 추가
+  detail_image?: string // 상세페이지 이미지 URL
+  detailImageUrl?: string // 레거시 호환성을 위해 유지
 }
 
 // 배송 옵션 타입

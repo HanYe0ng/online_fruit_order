@@ -34,6 +34,8 @@ export const mockGiftProducts: GiftProduct[] = [
     discount: 10,
     quantity: 15,
     image_url: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400",
+    detail_image: "/detail_images/product_999_detail.jpg", // 상세페이지 이미지 추가
+    detail_image_url: "/detail_images/product_999_detail.jpg", // DB 필드와 매칭
     is_soldout: false,
     category: 'gift',
     description: "사과, 배 혼합세트로 당도가 높아서 맛있는 과일들로만 구성된 9과 상품입니다. 심혈을 기울여 준비한 추석 과일 세트입니다.",

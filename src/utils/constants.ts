@@ -16,6 +16,8 @@ export const ROUTES = {
   PRODUCTS: '/products',
   CART: '/cart',
   ORDER_COMPLETE: '/order-complete',
+  PRODUCT_DETAIL: (id: string | number) => `/product/${id}`,
+  GIFT_PRODUCT_DETAIL: (id: string | number) => `/gift-product/${id}`,
   
   // Admin routes
   ADMIN_LOGIN: '/admin/login',

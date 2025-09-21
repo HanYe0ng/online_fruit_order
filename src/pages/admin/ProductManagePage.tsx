@@ -20,64 +20,37 @@ const ProductManagePage: React.FC = () => {
   const [isOrderManagerOpen, setIsOrderManagerOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(12) // 한 페이지당 12개 상품
+  
+  // 카테고리 필터 상태 추가
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'today' | 'gift'>('all')
 
   const isAdmin = user?.role === 'admin'
   const [stores, setStores] = useState<StoreLite[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<number | undefined>(undefined)
 
-  // 디버깅을 위한 사용자 정보 출력
-  useEffect(() => {
-    console.log('=== 사용자 정보 디버깅 ===', {
-      전체_user_객체: user,
-      role: user?.role,
-      store_id: user?.store_id,
-      email: user?.email,
-      isAdmin_계산결과: isAdmin,
-      user가_존재하는가: !!user,
-      role_타입: typeof user?.role,
-      role_값: user?.role,
-      'admin과_일치': user?.role === 'admin'
-    })
-  }, [user, isAdmin])
-
   // 관리자: 점포 목록 로드 + 초기 선택값(없음=전체)
   useEffect(() => {
     if (!isAdmin) {
-      console.log('비관리자 - 사용자 점포 ID로 설정:', user?.store_id)
       setSelectedStoreId(user?.store_id ?? undefined)
       return
     }
     
-    console.log('관리자 - 점포 목록 로드 시작')
     let mounted = true
     
     ;(async () => {
       try {
-        console.log('🏪 Supabase에서 점포 목록 요청 시작...')
         const { data, error } = await supabase
           .from('stores')
           .select('id, name')
           .order('id', { ascending: true })
         
-        console.log('📊 Supabase 응답:', { data, error })
-        
-        if (!mounted) {
-          console.log('컴포너트가 언마운트됨 - 요청 취소')
-          return
-        }
+        if (!mounted) return
         
         if (error) {
-          console.error('❌ 점포 목록 로드 실패:', {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code
-          })
+          console.error('❌ 점포 목록 로드 실패:', error)
           setStores([])
         } else {
-          console.log('✅ 점포 목록 로드 성공:', data)
           const storesData = (data as StoreLite[]) ?? []
-          console.log('파싱된 점포 데이터:', storesData)
           setStores(storesData)
         }
       } catch (exception) {
@@ -90,16 +63,27 @@ const ProductManagePage: React.FC = () => {
     
     return () => { 
       mounted = false
-      console.log('점포 로드 useEffect 정리')
     }
   }, [isAdmin, user?.store_id])
 
-  // 쿼리 및 뮤테이션 (관리자는 선택 점포 기준; 선택 없으면 전체)
+  // 점포 변경 시 페이지 리셋
+  useEffect(() => {
+    console.log('🏪 점포 변경으로 인한 페이지 리셋:', selectedStoreId)
+    setCurrentPage(1)
+  }, [selectedStoreId])
+
+  // 카테고리 필터 변경 시 페이지 리셋
+  useEffect(() => {
+    console.log('🏷️ 카테고리 필터 변경으로 인한 페이지 리셋:', categoryFilter)
+    setCurrentPage(1)
+  }, [categoryFilter])
+
+  // 쿼리 및 뮤테이션
   const queryKey = useMemo(() => ({ store_id: selectedStoreId }), [selectedStoreId])
   const paginationParams = useMemo(() => ({ 
-    page: currentPage, 
-    limit: itemsPerPage 
-  }), [currentPage, itemsPerPage])
+    page: 1, // 서버에서는 모든 데이터를 가져오고 클라이언트에서 페이지네이션
+    limit: 1000 // 충분히 큰 수로 설정
+  }), [])
   
   const { data: productsResponse, isLoading, error, refetch: originalRefetch } = useProducts(queryKey, paginationParams)
   const createProduct = useCreateProduct()
@@ -107,37 +91,63 @@ const ProductManagePage: React.FC = () => {
   const deleteProduct = useDeleteProduct()
   const toggleSoldOut = useToggleSoldOut()
   
-  // refetch 함수도 메모이제이션
   const refetch = useCallback(() => {
     console.log('🔄 refetch 호출')
     return originalRefetch()
   }, [originalRefetch])
 
-  // 페이지 가시성 감지 및 자동 새로고침
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('📱 탭 활성화됨 - 데이터 새로고침')
-        // 탭이 다시 활성화되면 데이터를 새로고침
-        setTimeout(() => {
-          refetch()
-        }, 500) // 500ms 지연 후 실행
+  // 카테고리 필터링 적용
+  const filteredProducts = useMemo(() => {
+    const allProducts = productsResponse?.data || []
+    
+    // 카테고리 필터링 (클라이언트 사이드)
+    if (categoryFilter === 'all') {
+      return allProducts
+    }
+    
+    return allProducts.filter(product => {
+      // category 필드가 있으면 그것을 우선 사용
+      if (product.category) {
+        return product.category === categoryFilter
       }
-    }
+      
+      // category 필드가 없으면 상품명으로 판단 (레거시 지원)
+      const name = product.name.toLowerCase()
+      if (categoryFilter === 'gift') {
+        return name.includes('선물') || name.includes('기프트') || name.includes('gift')
+      } else { // 'today'
+        return !name.includes('선물') && !name.includes('기프트') && !name.includes('gift')
+      }
+    })
+  }, [productsResponse?.data, categoryFilter])
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [refetch])
+  // 페이지네이션을 위한 현재 페이지 상품들 계산
+  const currentPageProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return filteredProducts.slice(startIndex, endIndex)
+  }, [filteredProducts, currentPage, itemsPerPage])
 
-  const products = useMemo(() => productsResponse?.data || [], [productsResponse?.data])
-  const pagination = useMemo(() => productsResponse?.pagination, [productsResponse?.pagination])
+  // 총 페이지 수 계산
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
 
   // 페이지 변경 핸들러
   const handlePageChange = useCallback((page: number) => {
-    setCurrentPage(page)
+    const validPage = Math.max(1, Math.min(page, totalPages))
+    setCurrentPage(validPage)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [totalPages])
+
+  // 점포 선택 변경 핸들러 - 페이지 리셋 포함
+  const handleStoreChange = useCallback((storeId: number | undefined) => {
+    console.log('🏪 점포 선택 변경:', storeId)
+    setSelectedStoreId(storeId)
+  }, [])
+
+  // 카테고리 필터 변경 핸들러
+  const handleCategoryFilterChange = useCallback((category: 'all' | 'today' | 'gift') => {
+    console.log('🏷️ 카테고리 필터 변경:', category)
+    setCategoryFilter(category)
   }, [])
 
   // 상품 등록
@@ -153,13 +163,10 @@ const ProductManagePage: React.FC = () => {
       if (result.error) {
         toast.error('상품 등록 실패', result.error)
       } else {
-        console.log('✅ 상품 등록 성공 - 모달 닫기 및 상태 정리')
-        
-        // 성공 후 상태 정리
         setIsFormOpen(false)
-        setEditingProduct(null) // 편집 상태 초기화
-        
+        setEditingProduct(null)
         toast.success('상품 등록 완료', '새 상품이 성공적으로 등록되었습니다.')
+        setCurrentPage(1)
         refetch()
       }
     } catch (error) {
@@ -224,107 +231,46 @@ const ProductManagePage: React.FC = () => {
 
   // 새 상품 등록 버튼
   const handleNewProductClick = useCallback(() => {
-    console.log('🆕 새 상품 등록 버튼 클릭 - 상태 초기화')
-    setEditingProduct(null) // 이전 편집 데이터 제거
+    setEditingProduct(null)
     setIsFormOpen(true)
   }, [])
 
   // 폼 닫기
   const handleFormClose = useCallback(() => {
-    console.log('❌ 폼 닫기 - 상태 초기화')
     setIsFormOpen(false)
-    setEditingProduct(null) // 편집 데이터 제거
+    setEditingProduct(null)
   }, [])
 
   // 에러 상태 처리
   if (error) {
-    // 인증 관련 에러인지 확인
-    const errorMessage = error?.message || ''
-    const isAuthError = errorMessage.includes('JWT') || 
-                       errorMessage.includes('Authentication') ||
-                       errorMessage.includes('Session') ||
-                       errorMessage.includes('인증')
-    
     return (
       <AdminLayout>
         <div className="dalkomne-card p-6 text-center max-w-md mx-auto mt-10">
           <div className="text-6xl mb-4">😵</div>
           <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--error)' }}>
-            {isAuthError ? '세션이 만료되었습니다' : '데이터를 불러올 수 없습니다'}
+            데이터를 불러올 수 없습니다
           </h3>
           <p className="text-gray-600 mb-6">
-            {isAuthError 
-              ? '로그인 세션이 만료되었습니다. 세션을 복구하거나 다시 로그인해주세요.' 
-              : '네트워크 연결을 확인하고 다시 시도해주세요.'}
+            네트워크 연결을 확인하고 다시 시도해주세요.
           </p>
-          <div className="flex flex-col gap-3">
-            {isAuthError ? (
-              <SessionRecoveryButton 
-                onRecoverySuccess={() => {
-                  refetch()
-                }} 
-                className="justify-center"
-              />
-            ) : (
-              <button
-                onClick={() => {
-                  checkConnection()
-                  refetch()
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
-              >
-                <span>🔄</span>
-                <span>다시 시도</span>
-              </button>
-            )}
-            <p className="text-xs text-gray-500 mt-2">
-              문제가 지속되면 페이지를 새로고침하거나 관리자에게 문의하세요.
-            </p>
-          </div>
-        </div>
-      </AdminLayout>
-    )
-  }
-
-  // 연결 상태 경고
-  const connectionWarning = !isConnected && (
-    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-      <div className="flex items-center space-x-2">
-        <span className="text-yellow-600">⚠️</span>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-yellow-800">
-            네트워크 연결 불안정
-          </p>
-          <p className="text-xs text-yellow-700">
-            데이터를 불러오는 데 시간이 걸릴 수 있습니다. 세션 복구를 시도하거나 잠시 후 다시 시도해주세요.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <SessionRecoveryButton 
-            onRecoverySuccess={() => refetch()} 
-            className="text-xs px-2 py-1 bg-orange-500 hover:bg-orange-600"
-          />
           <button
             onClick={() => {
               checkConnection()
               refetch()
             }}
-            className="px-3 py-1 bg-yellow-200 text-yellow-800 rounded text-xs hover:bg-yellow-300 transition-colors"
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
           >
-            재연결
+            다시 시도
           </button>
         </div>
-      </div>
-    </div>
-  )
+      </AdminLayout>
+    )
+  }
 
   return (
     <AdminLayout>
       <ErrorBoundary>
-        {/* 연결 상태 경고 */}
-        {connectionWarning}
-
-        {/* 점포 선택 및 액션 버튼 - 더 작게 수정 */}
+        {/* 점포 선택 및 액션 버튼 */}
         <div className="dalkomne-card p-4 mb-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center space-x-2">
@@ -348,27 +294,16 @@ const ProductManagePage: React.FC = () => {
                     value={selectedStoreId ?? ''}
                     onChange={(e) => {
                       const v = e.target.value
-                      console.log('점포 선택 변경:', v)
-                      setSelectedStoreId(v ? Number(v) : undefined)
-                      setCurrentPage(1) // 점포 변경 시 페이지 리셋
+                      handleStoreChange(v ? Number(v) : undefined)
                     }}
                   >
                     <option value="">전체 점포 ({stores.length}개)</option>
-                    {stores.map(s => {
-                      console.log('점포 옵션 렌더링:', s)
-                      return (
-                        <option key={s.id} value={s.id}>
-                          {s.id}번 — {s.name}
-                        </option>
-                      )
-                    })}
+                    {stores.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.id}번 — {s.name}
+                      </option>
+                    ))}
                   </select>
-                  {/* 디버깅 정보 */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      점포 수: {stores.length}, 선택된 ID: {selectedStoreId ?? '없음'}
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -381,7 +316,7 @@ const ProductManagePage: React.FC = () => {
                 <span>➕</span>
                 <span>새 상품</span>
               </button>
-              
+
               {/* 순서 관리 버튼 - 점포가 선택되었을 때만 표시 */}
               {selectedStoreId && (
                 <button
@@ -408,27 +343,46 @@ const ProductManagePage: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
 
-          {/* 관리자 안내 배너 (점포 미선택 시) */}
-          {isAdmin && !selectedStoreId && (
-            <div 
-              className="mt-3 p-3 rounded-lg"
-              style={{ background: 'var(--dalkomne-orange-soft)', borderColor: 'var(--dalkomne-orange-light)' }}
-            >
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">💡</span>
-                <div className="text-sm" style={{ color: 'var(--dalkomne-orange-dark)' }}>
-                  점포를 선택하면 해당 점포의 상품만 관리할 수 있습니다.
-                </div>
-              </div>
+        {/* 카테고리 필터 섹션 */}
+        <div className="dalkomne-card p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="text-xl">🏷️</div>
+              <h3 className="text-base font-bold" style={{ color: 'var(--gray-900)' }}>카테고리 필터</h3>
             </div>
-          )}
+            
+            <div className="flex gap-2">
+              <Button
+                variant={categoryFilter === 'all' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => handleCategoryFilterChange('all')}
+              >
+                전체
+              </Button>
+              <Button
+                variant={categoryFilter === 'today' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => handleCategoryFilterChange('today')}
+              >
+                🍎 오늘의 과일
+              </Button>
+              <Button
+                variant={categoryFilter === 'gift' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => handleCategoryFilterChange('gift')}
+              >
+                🎁 과일선물
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* 통계 카드 */}
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {[...Array(4)].map((_, i) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            {[...Array(3)].map((_, i) => (
               <div key={i} className="dalkomne-card p-4 animate-pulse">
                 <div className="h-8 bg-gray-200 rounded mb-2"></div>
                 <div className="h-4 bg-gray-200 rounded"></div>
@@ -438,18 +392,20 @@ const ProductManagePage: React.FC = () => {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             <div className="dalkomne-card p-4 text-center">
-              <p className="text-2xl font-bold text-black">{products.length}</p>
+              <p className="text-2xl font-bold text-black">
+                {filteredProducts.length}
+              </p>
               <p className="text-sm" style={{ color: 'var(--gray-600)' }}>총 상품 수</p>
             </div>
             <div className="dalkomne-card p-4 text-center">
               <p className="text-2xl font-bold text-black">
-                {products.filter(p => !p.is_soldout).length}
+                {filteredProducts.filter(p => !p.is_soldout).length}
               </p>
               <p className="text-sm" style={{ color: 'var(--gray-600)' }}>판매 중</p>
             </div>
             <div className="dalkomne-card p-4 text-center">
               <p className="text-2xl font-bold text-black">
-                {products.filter(p => p.is_soldout).length}
+                {filteredProducts.filter(p => p.is_soldout).length}
               </p>
               <p className="text-sm" style={{ color: 'var(--gray-600)' }}>품절</p>
             </div>
@@ -458,11 +414,30 @@ const ProductManagePage: React.FC = () => {
 
         {/* 상품 목록 */}
         <div className="dalkomne-card p-6">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="text-2xl">🛍️</div>
-            <div>
-              <h3 className="text-lg font-bold" style={{ color: 'var(--gray-900)' }}>등록된 상품</h3>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="text-2xl">🛍️</div>
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--gray-900)' }}>
+                  등록된 상품
+                  {categoryFilter !== 'all' && (
+                    <span className="ml-2 text-sm font-normal text-gray-600">
+                      ({categoryFilter === 'today' ? '🍎 오늘의 과일' : '🎁 과일선물'})
+                    </span>
+                  )}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  전체 {filteredProducts.length}개 중 {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)}-{Math.min(currentPage * itemsPerPage, filteredProducts.length)}개 표시
+                </p>
+              </div>
             </div>
+            
+            {/* 현재 페이지 정보 */}
+            {totalPages > 1 && (
+              <div className="text-sm text-gray-600">
+                {currentPage} / {totalPages} 페이지
+              </div>
+            )}
           </div>
 
           {isLoading ? (
@@ -471,30 +446,95 @@ const ProductManagePage: React.FC = () => {
                 <ProductCardSkeleton key={i} />
               ))}
             </div>
-          ) : (
+          ) : filteredProducts.length > 0 ? (
             <>
               <ProductList
-                products={products}
+                products={currentPageProducts}
                 isLoading={isLoading}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteProduct}
                 onToggleSoldOut={handleToggleSoldOut}
                 onRefresh={refetch}
+                onPageReset={() => setCurrentPage(1)}
               />
               
               {/* 페이지네이션 */}
-              {pagination && pagination.totalPages > 1 && (
+              {totalPages > 1 && (
                 <div className="mt-8">
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={pagination.totalPages}
-                    totalItems={pagination.total}
-                    itemsPerPage={pagination.limit}
-                    onPageChange={handlePageChange}
-                  />
+                  <div className="flex items-center justify-between">
+                    {/* 정보 표시 */}
+                    <div className="text-sm text-gray-600">
+                      <span>
+                        전체 <span className="font-medium text-gray-900">{filteredProducts.length}</span>개 중{' '}
+                        <span className="font-medium text-gray-900">
+                          {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)}
+                        </span>
+                        -
+                        <span className="font-medium text-gray-900">
+                          {Math.min(currentPage * itemsPerPage, filteredProducts.length)}
+                        </span>
+                        개 표시
+                      </span>
+                    </div>
+
+                    {/* 페이지 버튼 */}
+                    <nav className="flex items-center space-x-1">
+                      {/* 이전 페이지 */}
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === 1
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                      >
+                        이전
+                      </button>
+
+                      {/* 페이지 번호 */}
+                      <span className="px-4 py-2 text-sm font-medium">
+                        {currentPage} / {totalPages}
+                      </span>
+
+                      {/* 다음 페이지 */}
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === totalPages
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                      >
+                        다음
+                      </button>
+                    </nav>
+                  </div>
                 </div>
               )}
             </>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">📦</div>
+              <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--gray-900)' }}>
+                {categoryFilter === 'all' 
+                  ? '등록된 상품이 없습니다'
+                  : categoryFilter === 'gift'
+                  ? '과일선물 상품이 없습니다'
+                  : '오늘의 과일 상품이 없습니다'
+                }
+              </h3>
+              <p className="text-gray-600 mb-4">
+                새 상품을 등록해보세요!
+              </p>
+              <button
+                onClick={handleNewProductClick}
+                className="dalkomne-button-primary"
+              >
+                ➕ 새 상품 등록
+              </button>
+            </div>
           )}
         </div>
 
@@ -508,16 +548,6 @@ const ProductManagePage: React.FC = () => {
           title={editingProduct ? '상품 수정' : '새 상품 등록'}
         />
 
-        {/* 상품 순서 관리 모달 */}
-        {isOrderManagerOpen && selectedStoreId && (
-          <ProductOrderManager
-            storeId={selectedStoreId}
-            onClose={() => {
-              setIsOrderManagerOpen(false)
-              refetch() // 순서 변경 후 목록 새로고침
-            }}
-          />
-        )}
       </ErrorBoundary>
     </AdminLayout>
   )
