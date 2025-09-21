@@ -34,7 +34,17 @@ export const mockGiftProducts: GiftProduct[] = [
     discount: 10,
     quantity: 15,
     image_url: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400",
-    detail_image: "/detail_images/product_999_detail.jpg", // 상세페이지 이미지 추가
+    
+    // 새로운 이미지 구조
+    thumbnail_url: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400", // 썸네일
+    detail_images: [ // 상세 이미지들
+      "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600",
+      "https://images.unsplash.com/photo-1570913149827-d2ac84ab3f9a?w=600",
+      "https://images.unsplash.com/photo-1595475038665-8940bdb3d83a?w=600"
+    ],
+    
+    // 기존 필드들 (하위 호환성)
+    detail_image: "/detail_images/product_999_detail.jpg", // 레거시
     detail_image_url: "/detail_images/product_999_detail.jpg", // DB 필드와 매칭
     is_soldout: false,
     category: 'gift',
@@ -42,6 +52,8 @@ export const mockGiftProducts: GiftProduct[] = [
     tags: ["추석특가", "혼합세트", "실속형"],
     rating: 4.8,
     reviewCount: 34,
+    
+    // 레거시 images 배열 (하위 호환성)
     images: [
       "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600",
       "https://images.unsplash.com/photo-1570913149827-d2ac84ab3f9a?w=600",

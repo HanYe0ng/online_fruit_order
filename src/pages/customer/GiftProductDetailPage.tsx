@@ -67,7 +67,9 @@ const GiftProductDetailPage: React.FC = () => {
                   tags: ['신선한', '선물용', '추천'],
                   rating: 4.5 + Math.random() * 0.5,
                   reviewCount: Math.floor(Math.random() * 50) + 10,
-                  images: dbProduct.image_url ? [dbProduct.image_url] : [],
+                  // 기존 images 배열 방식 대신 thumbnail_url과 detail_images로 분리
+                  thumbnail_url: dbProduct.image_url,
+                  detail_images: dbProduct.image_url ? [dbProduct.image_url] : [],
                   nutritionInfo: `영양가득한 ${dbProduct.name || '과일'}`,
                   storageInfo: '서늘하고 통풍이 잘 되는 곳에 보관',
                   origin: '국내산'
@@ -161,8 +163,37 @@ const GiftProductDetailPage: React.FC = () => {
     alert('장바구니에 추가되었습니다!')
   }
 
-  // 기본 상품 정보 표시
-  const images = product.images || [product.image_url].filter(Boolean) as string[]
+  // 표시할 이미지들 결합 (썸네일 + 상세이미지)
+  const getAllImages = () => {
+    const images: string[] = []
+    
+    // 썸네일이 있으면 첫 번째로 추가
+    if (product?.thumbnail_url) {
+      images.push(product.thumbnail_url)
+    }
+    
+    // 상세 이미지들 추가 (썸네일과 중복되지 않도록)
+    if (product?.detail_images && product.detail_images.length > 0) {
+      const uniqueDetailImages = product.detail_images.filter(img => img !== product.thumbnail_url)
+      images.push(...uniqueDetailImages)
+    }
+    
+    // 기존 images 배열도 지원 (하위 호환성)
+    if (product?.images && product.images.length > 0) {
+      const uniqueImages = product.images.filter(img => !images.includes(img))
+      images.push(...uniqueImages)
+    }
+    
+    // image_url도 지원 (하위 호환성)
+    if (product?.image_url && !images.includes(product.image_url)) {
+      images.push(product.image_url)
+    }
+    
+    return images.length > 0 ? images : ['/placeholder-image.jpg']
+  }
+
+  // 새로운 이미지 배열 생성
+  const images = getAllImages()
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--gray-50)' }}>
@@ -223,6 +254,9 @@ const GiftProductDetailPage: React.FC = () => {
                   src={images[selectedImageIndex]} 
                   alt={product.name}
                   className="w-full h-96 object-cover rounded-lg"
+                  onError={(e) => {
+                    e.currentTarget.src = '/placeholder-image.jpg'
+                  }}
                 />
               </div>
               
@@ -240,6 +274,9 @@ const GiftProductDetailPage: React.FC = () => {
                         src={image} 
                         alt={`${product.name} ${index + 1}`}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = '/placeholder-image.jpg'
+                        }}
                       />
                     </button>
                   ))}

@@ -30,12 +30,19 @@ export interface GiftProduct extends Product {
   tags?: string[] // 태그 (예: "인기", "신상", "특가")
   rating?: number // 평점
   reviewCount?: number // 리뷰 수
-  images?: string[] // 상세 이미지들
+  
+  // 새로운 이미지 구조
+  thumbnail_url?: string // 썸네일 이미지 (목록, 장바구니에서 사용)
+  detail_images?: string[] // 상세 이미지들 (상품 상세 페이지에서 사용)
+  
+  // 기존 이미지 필드들 (하위 호환성)
+  images?: string[] // 레거시: 상세 이미지들
+  detail_image?: string // 레거시: 상세페이지 이미지 URL
+  detailImageUrl?: string // 레거시: 호환성을 위해 유지
+  
   nutritionInfo?: string // 영양 정보
   storageInfo?: string // 보관 방법
   origin?: string // 원산지
-  detail_image?: string // 상세페이지 이미지 URL
-  detailImageUrl?: string // 레거시 호환성을 위해 유지
 }
 
 // 배송 옵션 타입
