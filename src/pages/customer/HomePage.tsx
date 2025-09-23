@@ -445,6 +445,7 @@ const HomePage: React.FC = () => {
                         rating: 4.5 + Math.random() * 0.5,
                         reviewCount: Math.floor(Math.random() * 50) + 10,
                         images: product.image_url ? [product.image_url] : [],
+                        detail_image_url: product.detail_image_url || null, // 필수 필드로 명시적 변환
                         nutritionInfo: `영양가득한 ${product.name}`,
                         storageInfo: '서늘하고 통풍이 잘 되는 곳에 보관',
                         origin: '국내산'

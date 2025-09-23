@@ -285,7 +285,7 @@ export const convertDbGiftProductToGiftProduct = (dbProduct: DbGiftProduct): imp
     display_order: dbProduct.display_order,
     quantity: dbProduct.quantity,
     image_url: dbProduct.image_url,
-    detail_image_url: dbProduct.detail_image_url || null, // 상세페이지 이미지 URL 추가
+    detail_image_url: dbProduct.detail_image_url || null, // 필수 필드로 string | null 타입 보장
     is_soldout: dbProduct.is_soldout,
     category: 'gift',
     created_at: dbProduct.created_at,

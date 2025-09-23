@@ -5,6 +5,7 @@ interface ImageCompressionOptions {
   maxSizeMB?: number
   maxWidthOrHeight?: number
   useWebWorker?: boolean
+  initialQuality?: number
   onProgress?: (progress: number) => void
 }
 
@@ -44,26 +45,26 @@ const getCompressionStrategy = (fileSize: number, browserInfo: any) => {
   if (browserInfo.needsSpecialHandling) {
     // 카카오톡 등 특별 처리가 필요한 브라우저
     return {
-      maxSizeMB: sizeMB > 5 ? 1 : 0.5,
-      maxWidthOrHeight: sizeMB > 5 ? 800 : 600,
+      maxSizeMB: sizeMB > 6 ? 1.6 : 1.1,
+      maxWidthOrHeight: sizeMB > 6 ? 1500 : 1200,
       useWebWorker: false,
-      initialQuality: 0.8
+      initialQuality: 0.9
     };
   } else if (browserInfo.isInApp) {
     // 일반 인앱브라우저
     return {
-      maxSizeMB: sizeMB > 10 ? 2 : 1,
-      maxWidthOrHeight: sizeMB > 10 ? 1000 : 800,
+      maxSizeMB: sizeMB > 8 ? 1.6 : 1.2,
+      maxWidthOrHeight: sizeMB > 8 ? 1500 : 1300,
       useWebWorker: false, // 안전을 위해 비활성화
       initialQuality: 0.9
     };
   } else {
     // 일반 브라우저
     return {
-      maxSizeMB: 0.3,
-      maxWidthOrHeight: 500,
-      useWebWorker: true,
-      initialQuality: 0.8
+      maxSizeMB: sizeMB > 5 ? 1.4 : 1,
+      maxWidthOrHeight: sizeMB > 5 ? 1600 : 1400,
+      useWebWorker: isWebWorkerSupported(),
+      initialQuality: 0.88
     };
   }
 };
@@ -100,10 +101,10 @@ export const compressImage = async (
 
   // 옵션 병합 (사용자 옵션이 우선)
   const finalOptions = {
-    maxSizeMB: options.maxSizeMB || strategy.maxSizeMB,
-    maxWidthOrHeight: options.maxWidthOrHeight || strategy.maxWidthOrHeight,
-    useWebWorker: options.useWebWorker !== undefined ? options.useWebWorker : strategy.useWebWorker,
-    initialQuality: strategy.initialQuality
+    maxSizeMB: options.maxSizeMB ?? strategy.maxSizeMB,
+    maxWidthOrHeight: options.maxWidthOrHeight ?? strategy.maxWidthOrHeight,
+    useWebWorker: options.useWebWorker ?? strategy.useWebWorker,
+    initialQuality: options.initialQuality ?? strategy.initialQuality
   };
 
   try {
@@ -232,6 +233,15 @@ export const validateImageFile = (file: File): { isValid: boolean; error?: strin
     return { 
       isValid: false, 
       error: `이미지 파일은 ${maxSizeMB}MB 이하만 업로드 가능합니다.` 
+    };
+  }
+
+  // HEIC/HEIF 안내
+  const heicTypes = ['image/heic', 'image/heif', 'image/heic-sequence'];
+  if (heicTypes.includes(file.type)) {
+    return {
+      isValid: false,
+      error: 'HEIC/HEIF 이미지는 아직 지원하지 않습니다. iPhone 설정에서 JPEG/PNG로 저장하거나 변환 후 다시 업로드해주세요.'
     };
   }
 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { GiftProduct, ProductDeliveryOption, Product } from '../../types/product'
-import { mockGiftProducts } from '../../data/mockData'
 import { fetchStores } from '../../services/stores'
 import { StoreInfo } from '../../types/product'
 import { directSupabaseCall } from '../../services/directSupabase'
@@ -15,7 +14,6 @@ const GiftProductDetailPage: React.FC = () => {
   const { addGiftItem } = useCartStore()
   
   const [product, setProduct] = useState<GiftProduct | null>(null)
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [showOptionsModal, setShowOptionsModal] = useState(false)
   const [logoError, setLogoError] = useState(false)
@@ -46,44 +44,38 @@ const GiftProductDetailPage: React.FC = () => {
           setSelectedStore(storesData[0].id)
         }
         
-        // 상품 데이터 로드
+        // 상품 데이터 로드 - 실제 DB에서만 가져오기
         if (productId) {
-          // 먼저 mockGiftProducts에서 찾기
-          let foundProduct = mockGiftProducts.find(p => p.id === Number(productId))
-          
-          // mockGiftProducts에 없으면 실제 DB에서 찾기
-          if (!foundProduct) {
-            try {
-              const dbProducts = await directSupabaseCall(`products?select=*&id=eq.${productId}`)
-              const dbProduct = (dbProducts as Product[])?.[0]
+          try {
+            const dbProducts = await directSupabaseCall(`products?select=*&id=eq.${productId}`)
+            const dbProduct = (dbProducts as Product[])?.[0]
+            
+            if (dbProduct) {
+              // DB 상품을 GiftProduct 형태로 변환
+              const foundProduct = {
+                ...dbProduct,
+                originalPrice: dbProduct.price + Math.floor(dbProduct.price * 0.1),
+                discount: 10,
+                description: dbProduct.name ? `신선한 ${dbProduct.name}을 선물로 전해보세요.` : '신선한 과일을 선물로 전해보세요.',
+                tags: ['신선한', '선물용', '추천'],
+                rating: 4.5 + Math.random() * 0.5,
+                reviewCount: Math.floor(Math.random() * 50) + 10,
+                // 상세페이지 이미지를 메인 콘텐츠로 사용
+                detail_image_url: dbProduct.detail_image_url || null, // ProductForm에서 업로드한 세로형 이미지 - 필수 필드
+                thumbnail_url: dbProduct.image_url, // 썸네일
+                detail_images: dbProduct.image_url ? [dbProduct.image_url] : [], // 추가 상세 이미지
+                nutritionInfo: `영양가득한 ${dbProduct.name || '과일'}`,
+                storageInfo: '서늘하고 통풍이 잘 되는 곳에 보관',
+                origin: '국내산'
+              } as GiftProduct
               
-              if (dbProduct) {
-                // DB 상품을 GiftProduct 형태로 변환
-                foundProduct = {
-                  ...dbProduct,
-                  originalPrice: dbProduct.price + Math.floor(dbProduct.price * 0.1),
-                  discount: 10,
-                  description: dbProduct.name ? `신선한 ${dbProduct.name}을 선물로 전해보세요.` : '신선한 과일을 선물로 전해보세요.',
-                  tags: ['신선한', '선물용', '추천'],
-                  rating: 4.5 + Math.random() * 0.5,
-                  reviewCount: Math.floor(Math.random() * 50) + 10,
-                  // 기존 images 배열 방식 대신 thumbnail_url과 detail_images로 분리
-                  thumbnail_url: dbProduct.image_url,
-                  detail_images: dbProduct.image_url ? [dbProduct.image_url] : [],
-                  nutritionInfo: `영양가득한 ${dbProduct.name || '과일'}`,
-                  storageInfo: '서늘하고 통풍이 잘 되는 곳에 보관',
-                  origin: '국내산'
-                } as GiftProduct
-              }
-            } catch (error) {
-              console.error('DB에서 상품 로딩 오류:', error)
+              setProduct(foundProduct)
+            } else {
+              console.error('상품을 찾을 수 없습니다. ID:', productId)
+              navigate(ROUTES.HOME)
             }
-          }
-          
-          if (foundProduct) {
-            setProduct(foundProduct)
-          } else {
-            console.error('상품을 찾을 수 없습니다. ID:', productId)
+          } catch (error) {
+            console.error('DB에서 상품 로딩 오류:', error)
             navigate(ROUTES.HOME)
           }
         }
@@ -163,38 +155,6 @@ const GiftProductDetailPage: React.FC = () => {
     alert('장바구니에 추가되었습니다!')
   }
 
-  // 표시할 이미지들 결합 (썸네일 + 상세이미지)
-  const getAllImages = () => {
-    const images: string[] = []
-    
-    // 썸네일이 있으면 첫 번째로 추가
-    if (product?.thumbnail_url) {
-      images.push(product.thumbnail_url)
-    }
-    
-    // 상세 이미지들 추가 (썸네일과 중복되지 않도록)
-    if (product?.detail_images && product.detail_images.length > 0) {
-      const uniqueDetailImages = product.detail_images.filter(img => img !== product.thumbnail_url)
-      images.push(...uniqueDetailImages)
-    }
-    
-    // 기존 images 배열도 지원 (하위 호환성)
-    if (product?.images && product.images.length > 0) {
-      const uniqueImages = product.images.filter(img => !images.includes(img))
-      images.push(...uniqueImages)
-    }
-    
-    // image_url도 지원 (하위 호환성)
-    if (product?.image_url && !images.includes(product.image_url)) {
-      images.push(product.image_url)
-    }
-    
-    return images.length > 0 ? images : ['/placeholder-image.jpg']
-  }
-
-  // 새로운 이미지 배열 생성
-  const images = getAllImages()
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--gray-50)' }}>
       <header className="sticky top-0 z-40" style={{ 
@@ -247,43 +207,34 @@ const GiftProductDetailPage: React.FC = () => {
 
       <main className="container mx-auto px-4 py-8 pb-32">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="dalkomne-card p-4">
-                <img 
-                  src={images[selectedImageIndex]} 
-                  alt={product.name}
-                  className="w-full h-96 object-cover rounded-lg"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder-image.jpg'
-                  }}
-                />
+          {/* 상품 이미지 - 화면 가운데 정렬 */}
+          <div className="flex justify-center mb-8">
+            {product.detail_image_url ? (
+              <img 
+                src={product.detail_image_url} 
+                alt={product.name}
+                className="max-w-md w-full object-contain"
+                onError={(e) => {
+                  e.currentTarget.src = product.image_url || '/placeholder-image.jpg'
+                }}
+              />
+            ) : product.image_url ? (
+              <img 
+                src={product.image_url} 
+                alt={product.name}
+                className="max-w-md w-full object-contain"
+                onError={(e) => {
+                  e.currentTarget.src = '/placeholder-image.jpg'
+                }}
+              />
+            ) : (
+              <div className="max-w-md w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg">
+                <span className="text-gray-400">이미지 없음</span>
               </div>
-              
-              {images.length > 1 && (
-                <div className="flex space-x-2 overflow-x-auto">
-                  {images.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedImageIndex(index)}
-                      className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 ${
-                        selectedImageIndex === index ? 'border-dalkomne-orange' : 'border-gray-200'
-                      }`}
-                    >
-                      <img 
-                        src={image} 
-                        alt={`${product.name} ${index + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder-image.jpg'
-                        }}
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
+          </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
             <div className="space-y-6">
               <div className="dalkomne-card p-6">
                 {product.tags && product.tags.length > 0 && (

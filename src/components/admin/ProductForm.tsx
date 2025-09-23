@@ -1,9 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Button, Input, Modal, CameraCapture } from '../common'
 import { ProductFormData, Product } from '../../types/product'
 import { compressImage, validateImageFile, formatFileSize, CompressionResult } from '../../utils/imageUtils'
 import { detectInAppBrowser } from '../../utils/browserDetection'
-import { getInAppOptimizationSettings } from '../../utils/inAppOptimization'
 
 interface ProductFormProps {
   isOpen: boolean
@@ -48,16 +47,16 @@ const ProductForm: React.FC<ProductFormProps> = ({
     return { ...info, isDesktop }
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [bypassImageProcessing, setBypassImageProcessing] = useState(false)
   const [isCameraOpen, setIsCameraOpen] = useState<'thumbnail' | 'detail' | null>(null)
 
-  const thumbnailFileInputRef = useRef<HTMLInputElement | null>(null)
-  const detailFileInputRef = useRef<HTMLInputElement | null>(null)
+  const thumbnailFileInputRef = useRef<HTMLInputElement>(null)
+  const detailFileInputRef = useRef<HTMLInputElement>(null)
 
-  // 모달 초기화
+  // 모달 초기화 (개선된 로직)
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
+        console.log('✏️ 기존 데이터로 초기화')
         setFormData({
           name: initialData.name,
           price: String(initialData.price ?? ''),
@@ -70,22 +69,52 @@ const ProductForm: React.FC<ProductFormProps> = ({
         setThumbnailPreview(initialData.image_url || null)
         setDetailPreview(initialData.detail_image_url || null)
       } else {
-        resetForm()
+        // 새 상품 등록 시 기본 상태로 설정 (resetForm 대신)
+        console.log('🆕 새 상품 등록 모드 초기화')
+        setFormData({
+          name: '',
+          price: '',
+          discount_price: null,
+          quantity: '',
+          category: 'today',
+          image: null,
+          detail_image: null
+        })
+        setThumbnailPreview(null)
+        setDetailPreview(null)
+        setCompressionInfo({ thumbnail: null, detail: null })
+        setCompressionProgress({ thumbnail: 0, detail: 0 })
+        setErrors({})
+        setIsSubmitting(false)
+        setIsCameraOpen(null)
       }
     }
   }, [isOpen, initialData])
 
-  // 이미지 파일 처리
-  const processImageFile = async (file: File, type: 'thumbnail' | 'detail') => {
-    console.log(`🖼️ 이미지 처리 시작 (${type}):`, {
-      fileName: file.name,
-      fileSize: formatFileSize(file.size),
-      fileType: file.type,
-      platform: browserInfo.isDesktop ? 'desktop' : 'mobile'
-    })
+  // 미리보기 URL 정리 (수정된 로직)
+  useEffect(() => {
+    // 컴포넌트 언마운트 시에만 정리
+    return () => {
+      console.log('🧽 컴포넌트 언마운트 - 모든 blob URL 정리')
+      if (thumbnailPreview && thumbnailPreview.startsWith('blob:')) {
+        console.log('🧽 썸네일 blob URL 정리:', thumbnailPreview)
+        URL.revokeObjectURL(thumbnailPreview)
+      }
+      if (detailPreview && detailPreview.startsWith('blob:')) {
+        console.log('🧽 상세 이미지 blob URL 정리:', detailPreview)
+        URL.revokeObjectURL(detailPreview)
+      }
+    }
+  }, [])
 
+  // 이미지 파일 처리 (안정성 강화)
+  const processImageFile = useCallback(async (file: File, type: 'thumbnail' | 'detail') => {
+    console.log(`🖼️ 이미지 처리 시작 (${type}):`, file.name)
+    
+    // 유효성 검사
     const validation = validateImageFile(file)
     if (!validation.isValid) {
+      console.log(`❌ 이미지 유효성 검사 실패 (${type}):`, validation.error)
       setErrors(prev => ({ ...prev, [type === 'thumbnail' ? 'image' : 'detail_image']: validation.error || '' }))
       return
     }
@@ -101,50 +130,93 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
     setCompressing(true)
     setProgress(0)
+    
+    console.log(`🔄 이미지 처리 상태 설정 완료 (${type})`)
 
     try {
-      // 미리보기 즉시 표시
+      // 미리보기 즉시 표시 (기존 URL 정리)
+      const currentPreview = type === 'thumbnail' ? thumbnailPreview : detailPreview
+      if (currentPreview && currentPreview.startsWith('blob:')) {
+        console.log(`🧽 기존 미리보기 URL 정리 (${type})`)
+        URL.revokeObjectURL(currentPreview)
+      }
+      
       const objectURL = URL.createObjectURL(file)
-      type === 'thumbnail' ? setThumbnailPreview(objectURL) : setDetailPreview(objectURL)
+      console.log(`📁 새 미리보기 URL 생성 (${type}):`, objectURL)
+      
+      if (type === 'thumbnail') {
+        setThumbnailPreview(objectURL)
+      } else {
+        setDetailPreview(objectURL)
+      }
 
       let result: CompressionResult
-      
-      // 🔧 데스크탑에서 작은 파일은 압축 생략
+
       const fileSizeMB = file.size / (1024 * 1024)
-      const shouldSkipCompression = bypassImageProcessing || 
-        (browserInfo.isDesktop && fileSizeMB < 2) || 
-        fileSizeMB < 0.5
-      
+      const isDetail = type === 'detail'
+      const detailSkipThreshold = browserInfo.isDesktop ? 3 : 2.5
+      const thumbnailSkipThreshold = browserInfo.isDesktop ? 2 : 1
+      const shouldSkipCompression =
+        fileSizeMB < 0.45 ||
+        (isDetail ? fileSizeMB <= detailSkipThreshold : fileSizeMB <= thumbnailSkipThreshold)
+
       if (shouldSkipCompression) {
-        console.log(`📝 압축 생략 (파일이 충분히 작음: ${formatFileSize(file.size)})`) 
+        console.log(`⏩ 압축 생략 (${type}): 파일 크기 ${fileSizeMB.toFixed(2)}MB`)
         setProgress(100)
         result = { file, originalSize: file.size, compressedSize: file.size, compressionRatio: 0 }
       } else {
-        console.log(`🔄 이미지 압축 시작: ${formatFileSize(file.size)}`)
-        // 🔧 데스크탑에서 더 관대한 압축 옵션 사용
-        const compressionOptions = browserInfo.isDesktop ? {
-          maxSizeMB: fileSizeMB > 10 ? 2 : 1,
-          maxWidthOrHeight: 1000,
-          useWebWorker: false, // 데스크탑에서도 Web Worker 비활성화
-          initialQuality: 0.85
-        } : {}
+        console.log(`📊 이미지 압축 시작 (${type}): ${fileSizeMB.toFixed(2)}MB`)
         
-        result = await compressImage(file, compressionOptions, progress => setProgress(Math.round(progress)))
+        const compressionOptions = (() => {
+          if (isDetail) {
+            const maxSizeTarget = Math.min(Math.max(fileSizeMB * 0.8, 1.2), browserInfo.isDesktop ? 3.5 : 3)
+            return {
+              maxSizeMB: maxSizeTarget,
+              maxWidthOrHeight: browserInfo.isDesktop ? 1900 : 1600,
+              useWebWorker: false, // 안정성을 위해 false로 고정
+              initialQuality: 0.9
+            }
+          }
+
+          if (browserInfo.isDesktop) {
+            return {
+              maxSizeMB: fileSizeMB > 8 ? 1.8 : 1.1,
+              maxWidthOrHeight: 1200,
+              useWebWorker: false,
+              initialQuality: 0.86
+            }
+          }
+
+          return {
+            maxSizeMB: 0.9,
+            maxWidthOrHeight: 1100,
+            useWebWorker: false, // 인앱 브라우저에서는 항상 false
+            initialQuality: 0.87
+          }
+        })()
+
+        console.log(`🔧 압축 옵션 (${type}):`, compressionOptions)
+        result = await compressImage(file, compressionOptions, progress => {
+          const roundedProgress = Math.round(progress)
+          setProgress(roundedProgress)
+          console.log(`🔄 압축 진행 (${type}): ${roundedProgress}%`)
+        })
+        console.log(`✅ 압축 완료 (${type}):`, {
+          원본: (result.originalSize / 1024 / 1024).toFixed(2) + 'MB',
+          압축: (result.compressedSize / 1024 / 1024).toFixed(2) + 'MB',
+          절약: result.compressionRatio + '%'
+        })
       }
 
       setCompressionInfo(prev => ({ ...prev, [type]: result }))
-      setFormData(prev => ({ ...prev, [type === 'thumbnail' ? 'image' : 'detail_image']: result.file }))
-      console.log(`✅ 이미지 처리 완료 (${type}):`, {
-        originalSize: formatFileSize(result.originalSize),
-        compressedSize: formatFileSize(result.compressedSize),
-        compressionRatio: result.compressionRatio
-      })
+      setFormData(prev => ({ ...prev, [isDetail ? 'detail_image' : 'image']: result.file }))
+      
+      console.log(`✅ 이미지 처리 완료 (${type})`)
 
     } catch (error: any) {
       console.error(`❌ 이미지 처리 실패 (${type}):`, error)
       const key = type === 'thumbnail' ? 'image' : 'detail_image'
       
-      // 🔧 더 자세한 에러 메시지
       let errorMessage = '이미지 처리 중 오류가 발생했습니다.'
       
       if (error?.message?.includes('파일이 너무 큽니다')) {
@@ -153,30 +225,75 @@ const ProductForm: React.FC<ProductFormProps> = ({
         errorMessage = '파일이 손상되었거나 지원되지 않는 형식입니다.'
       } else if (error?.message?.includes('compression')) {
         errorMessage = '이미지 압축 중 오류가 발생했습니다. 다른 이미지를 시도해보세요.'
-      } else if (browserInfo.isDesktop) {
-        errorMessage = '데스크탑에서 이미지 처리 중 오류가 발생했습니다. 파일을 다시 선택해보세요.'
       }
       
       setErrors(prev => ({ ...prev, [key]: errorMessage }))
       
       // 미리보기 제거
-      type === 'thumbnail' ? setThumbnailPreview(null) : setDetailPreview(null)
+      if (type === 'thumbnail') {
+        setThumbnailPreview(null)
+      } else {
+        setDetailPreview(null)
+      }
     } finally {
+      console.log(`🏁 이미지 처리 종료 (${type})`)
       setCompressing(false)
       setProgress(0)
     }
-  }
+  }, [browserInfo, thumbnailPreview, detailPreview])
 
-  // 파일 input 이벤트 핸들러
-  const handleThumbnailImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 파일 input 이벤트 핸들러 (안정성 강화)
+  const handleThumbnailImageChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📁 썸네일 파일 선택 이벤트 발생')
+    console.log('📁 target.files:', e.target.files)
+    console.log('📁 files length:', e.target.files?.length)
+    
     const file = e.target.files?.[0]
-    if (file) await processImageFile(file, 'thumbnail')
-  }
+    if (file) {
+      console.log('📁 썸네일 파일 정보:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified
+      })
+      
+      // 다른 이미지 처리 중이라면 대기
+      if (isCompressingDetail) {
+        console.log('⚠️ 상세 이미지 처리 중이라 썸네일 처리 대기')
+        return
+      }
+      
+      await processImageFile(file, 'thumbnail')
+    } else {
+      console.log('⚠️ 선택된 파일이 없습니다')
+    }
+  }, [isCompressingDetail])
 
-  const handleDetailImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDetailImageChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📁 상세 이미지 파일 선택 이벤트 발생')
+    console.log('📁 target.files:', e.target.files)
+    console.log('📁 files length:', e.target.files?.length)
+    
     const file = e.target.files?.[0]
-    if (file) await processImageFile(file, 'detail')
-  }
+    if (file) {
+      console.log('📁 상세 이미지 파일 정보:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified
+      })
+      
+      // 다른 이미지 처리 중이라면 대기
+      if (isCompressingThumbnail) {
+        console.log('⚠️ 썸네일 처리 중이라 상세 이미지 처리 대기')
+        return
+      }
+      
+      await processImageFile(file, 'detail')
+    } else {
+      console.log('⚠️ 선택된 파일이 없습니다')
+    }
+  }, [isCompressingThumbnail])
 
   // 카메라 캡처
   const handleCameraCapture = async (file: File) => {
@@ -229,6 +346,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   }
 
   const resetForm = () => {
+    console.log('🧽 resetForm 실행 - 모달 종료 시에만 호췜')
     setFormData({
       name: '',
       price: '',
@@ -238,26 +356,100 @@ const ProductForm: React.FC<ProductFormProps> = ({
       image: null,
       detail_image: null
     })
+    
+    // 기존 미리보기 URL 정리
+    if (thumbnailPreview && thumbnailPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(thumbnailPreview)
+    }
+    if (detailPreview && detailPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(detailPreview)
+    }
+    
     setThumbnailPreview(null)
     setDetailPreview(null)
     setCompressionInfo({ thumbnail: null, detail: null })
     setCompressionProgress({ thumbnail: 0, detail: 0 })
     setErrors({})
     setIsSubmitting(false)
-    setBypassImageProcessing(false)
     setIsCameraOpen(null)
-    if (thumbnailFileInputRef.current) thumbnailFileInputRef.current.value = ''
-    if (detailFileInputRef.current) detailFileInputRef.current.value = ''
+    
+    // input value 초기화
+    if (thumbnailFileInputRef.current) {
+      console.log('🧽 썸네일 input value 초기화')
+      thumbnailFileInputRef.current.value = ''
+    }
+    if (detailFileInputRef.current) {
+      console.log('🧽 상세 이미지 input value 초기화')
+      detailFileInputRef.current.value = ''
+    }
   }
 
   const handleClose = () => {
-    if (isLoading || isSubmitting) return
+    console.log('🚪 모달 닫기 시도')
+    if (isLoading || isSubmitting) {
+      console.log('⚠️ 로딩 중이라 모달 닫기 차단')
+      return
+    }
+    console.log('🚪 모달 닫기 실행 - resetForm 호출')
     resetForm()
     onClose()
   }
 
   const actuallyLoading = isLoading || isSubmitting
   const isGiftCategory = formData.category === 'gift'
+
+  // 파일 선택 핸들러 (더 안정적인 방법)
+  const handleFileSelect = useCallback((type: 'thumbnail' | 'detail') => {
+    const fileInputRef = type === 'thumbnail' ? thumbnailFileInputRef : detailFileInputRef
+    const isOtherCompressing = type === 'thumbnail' ? isCompressingDetail : isCompressingThumbnail
+    const isCurrentCompressing = type === 'thumbnail' ? isCompressingThumbnail : isCompressingDetail
+    
+    if (!fileInputRef.current) {
+      console.log(`⚠️ ${type} input ref가 없습니다`)
+      return
+    }
+    
+    if (isOtherCompressing || isCurrentCompressing) {
+      console.log(`⚠️ 이미지 처리 중이라 ${type} 파일 선택 대기 (다른: ${isOtherCompressing}, 현재: ${isCurrentCompressing})`)
+      return
+    }
+    
+    console.log(`🖱️ ${type} 파일 선택 버튼 클릭`)
+    console.log(`📄 ${type} input ref:`, fileInputRef.current)
+    
+    // 직접적인 방법: 새로운 input 엘리먼트 생성
+    const newInput = document.createElement('input')
+    newInput.type = 'file'
+    newInput.accept = 'image/jpeg,image/jpg,image/png,image/webp'
+    newInput.style.display = 'none'
+    
+    console.log(`🆕 ${type} 새로운 input 엘리먼트 생성`)
+    
+    newInput.onchange = (e) => {
+      const target = e.target as HTMLInputElement
+      console.log(`✅ ${type} 새 input onChange 이벤트 발생!`)
+      console.log(`✅ ${type} 선택된 파일:`, target.files)
+      
+      if (target.files && target.files.length > 0) {
+        const file = target.files[0]
+        console.log(`✅ ${type} 파일 처리 시작:`, file.name)
+        
+        if (type === 'thumbnail') {
+          handleThumbnailImageChange({ target: { files: target.files } } as any)
+        } else {
+          handleDetailImageChange({ target: { files: target.files } } as any)
+        }
+      }
+      
+      // 사용 후 제거
+      document.body.removeChild(newInput)
+      console.log(`🗑️ ${type} 임시 input 엘리먼트 제거`)
+    }
+    
+    document.body.appendChild(newInput)
+    newInput.click()
+    console.log(`🖱️ ${type} 새 input 클릭 완료`)
+  }, [isCompressingThumbnail, isCompressingDetail, handleThumbnailImageChange, handleDetailImageChange])
 
   // 이미지 업로드 컴포넌트
   const ImageUploadSection = ({
@@ -268,7 +460,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
     compressionProgress,
     compressionInfo,
     error,
-    fileInputRef,
     onImageChange,
     onCameraClick
   }: {
@@ -279,7 +470,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
     compressionProgress: number
     compressionInfo: CompressionResult | null
     error?: string
-    fileInputRef: React.RefObject<HTMLInputElement | null>
     onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void
     onCameraClick: () => void
   }) => (
@@ -301,17 +491,32 @@ const ProductForm: React.FC<ProductFormProps> = ({
         <div className="flex-1">
           {/* 숨겨진 input */}
           <input
-            ref={fileInputRef}
+            ref={type === 'thumbnail' ? thumbnailFileInputRef : detailFileInputRef}
             type="file"
-            accept="image/*"
-            onChange={onImageChange}
-            hidden
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            onChange={(e) => {
+              console.log(`📎 ${title} input onChange 이벤트 트리거!`)
+              console.log(`📎 ${title} 파일 리스트:`, e.target.files)
+              console.log(`📎 ${title} 이벤트 대상:`, e.target)
+              console.log(`📎 ${title} 이벤트 타입:`, e.type)
+              
+              // 이벤트가 예상대로 발생했으니 직접 핸들러 호출
+              try {
+                onImageChange(e)
+              } catch (error) {
+                console.error(`❌ ${title} onChange 핸들러 오류:`, error)
+              }
+            }}
+            onClick={() => {
+              console.log(`📎 ${title} input onClick 이벤트`)
+            }}
+            style={{ display: 'none' }}
           />
           <div className="flex gap-2 mb-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => handleFileSelect(type)}
               disabled={isCompressing || actuallyLoading}
               className="flex-1"
             >
@@ -392,7 +597,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
           compressionProgress={compressionProgress.thumbnail}
           compressionInfo={compressionInfo.thumbnail}
           error={errors.image}
-          fileInputRef={thumbnailFileInputRef}
           onImageChange={handleThumbnailImageChange}
           onCameraClick={() => setIsCameraOpen('thumbnail')}
         />
@@ -407,7 +611,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
             compressionProgress={compressionProgress.detail}
             compressionInfo={compressionInfo.detail}
             error={errors.detail_image}
-            fileInputRef={detailFileInputRef}
             onImageChange={handleDetailImageChange}
             onCameraClick={() => setIsCameraOpen('detail')}
           />
